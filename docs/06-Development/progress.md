@@ -1,11 +1,34 @@
-# Progress log
+# Progress Log
 
-_Newest entries first._
+## 2026-04-10
 
-## YYYY-MM-DD
+### Full-stack clone implementation
 
-### Summary
+Built the complete Timeless Electronix website clone from scratch:
 
-### Decisions
+**Server (Express + TypeScript + MongoDB)**
+- Mongoose models: Product (18K+ items), ContactMessage, QuoteRequest
+- Public API: products (search, filter, paginate), manufacturers list, contact form, quote submission
+- Admin API: secret-code login with JWT, dashboard stats, products CRUD, CSV bulk import, Cloudinary image upload, messages management, quotes with status workflow
+- Zod request validation on all mutation endpoints
+- Resend email service for contact and quote notifications (graceful no-op when unconfigured)
+- CSV seed script for importing `Product_export.csv`
 
-### Links (PRs, issues, docs)
+**Client (React + Vite + TailwindCSS)**
+- 5 public pages: Home, Catalog, About, Contact, Quote
+- Home: hero with search, stats, "Who We Are", Industries, contact form, client logos, CTA
+- Catalog: search + manufacturer dropdown, paginated product grid, "Add to Quote" per card
+- Quote: localStorage-backed cart (QuoteContext), customer form, submit to API
+- Admin dashboard: login (env secret), stats overview, products table with CRUD/CSV import/image upload, messages inbox, quotes management with status changes
+- Dark theme matching the original site (custom Tailwind `@theme` tokens)
+- Mobile-responsive with hamburger menu
+
+**Testing**
+- 19 API tests across 4 suites (products, contact, quotes, admin)
+- In-memory MongoDB via mongodb-memory-server
+- All tests passing
+
+**Project quality**
+- 4 Cursor rules: workflow, stack conventions, component patterns, server patterns
+- Full documentation: Frameworks, Architecture, Development tasks/progress, Tests
+- Git history with conventional commits
