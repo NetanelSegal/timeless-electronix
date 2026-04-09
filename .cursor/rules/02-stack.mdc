@@ -1,0 +1,43 @@
+---
+description: Stack conventions — React client, Express server, MongoDB, Cloudinary, Resend.
+globs: "**/*"
+alwaysApply: true
+---
+
+# Stack (Timeless Electronix)
+
+## Architecture
+
+- **Monorepo** with `client/` (React SPA) and `server/` (Express API).
+- Client talks to server via `/api/*` (Vite proxy in dev, reverse proxy in prod).
+
+## Client (`client/`)
+
+- React 18 + TypeScript + Vite + TailwindCSS v4 + React Router.
+- State: `QuoteContext` (localStorage-backed cart) for quote items.
+- API calls: `src/lib/api.ts` (public), `src/lib/adminApi.ts` (admin with JWT).
+- Types: `src/lib/types.ts` — all shared interfaces.
+- Pages: `src/pages/` — flat for public, `admin/` subfolder for admin.
+- Components: `src/components/` — shared UI (Header, Footer, ProductCard).
+
+## Server (`server/`)
+
+- Express + TypeScript, run with `tsx` in dev.
+- Mongoose ODM for MongoDB. Models in `src/models/`.
+- Zod for request validation in routes.
+- JWT auth for admin routes (`ADMIN_SECRET` env var for login, `JWT_SECRET` for tokens).
+- Cloudinary SDK for image uploads. Resend for transactional email.
+- Routes: `src/routes/` — `products`, `contact`, `quotes`, `admin`.
+
+## Conventions
+
+- Use `async/await` with try/catch, pass errors to Express `next()`.
+- Validate request bodies with Zod schemas in route handlers.
+- Use `.lean()` on Mongoose queries when the document won't be modified.
+- TailwindCSS classes only — no CSS modules, no styled-components.
+- Custom colors defined in `client/src/index.css` under `@theme`: `bg-primary`, `bg-secondary`, `bg-card`, `green-brand`, `green-accent`, `text-primary`, `text-secondary`, `border`.
+
+## Environment
+
+- All env vars documented in `.env.example`. Server reads them via Zod-validated `src/config/env.ts`.
+- Optional services (Cloudinary, Resend) degrade gracefully when keys are empty.

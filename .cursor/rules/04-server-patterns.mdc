@@ -1,0 +1,37 @@
+---
+description: Express server route and service patterns.
+globs: "server/src/**/*.ts"
+alwaysApply: false
+---
+
+# Server Patterns
+
+## Route handlers
+
+- One router per domain: `products`, `contact`, `quotes`, `admin`.
+- Wrap async handlers in try/catch, call `next(err)` on failure.
+- Validate request bodies with Zod at the top of the handler; return 400 on validation error.
+- Use `.lean()` for read-only queries.
+
+## Admin routes
+
+- All admin routes behind `adminAuth` middleware (JWT verification).
+- Login endpoint validates `ADMIN_SECRET` and returns a signed JWT.
+- Paginate list endpoints with `page` and `limit` query params.
+
+## Models
+
+- Mongoose schemas in `src/models/`. Export both the interface (`IProduct`) and the model (`Product`).
+- Use `timestamps: true` for automatic `createdAt`/`updatedAt`.
+- Add indexes on frequently queried fields (`partNumber`, `manufacturer`).
+
+## Services
+
+- `src/services/email.ts` — Resend integration. Gracefully skip if `RESEND_API_KEY` is empty.
+- `src/services/cloudinary.ts` — Upload/delete. Gracefully skip if `CLOUDINARY_CLOUD_NAME` is empty.
+- Fire-and-forget email sending (`.catch(console.error)`) to avoid blocking the response.
+
+## Error handling
+
+- Central `errorHandler` middleware in `src/middleware/errorHandler.ts`.
+- Return `{ error: string }` shape for all error responses.

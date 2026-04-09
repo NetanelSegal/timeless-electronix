@@ -1,0 +1,37 @@
+---
+description: React component and page patterns for consistency.
+globs: "client/src/**/*.tsx"
+alwaysApply: false
+---
+
+# Component Patterns
+
+## Page structure
+
+- Each page is a default export in `src/pages/`.
+- Pages compose sections as JSX — no separate section components unless reused across pages.
+- Admin pages live in `src/pages/admin/` and use `adminApi` from `src/lib/adminApi.ts`.
+
+## Styling
+
+- Use Tailwind utility classes exclusively.
+- Custom theme tokens: `bg-bg-primary`, `bg-bg-secondary`, `bg-bg-card`, `text-text-primary`, `text-text-secondary`, `border-border`, `text-green-brand`, `text-green-accent`, `bg-green-brand`, `bg-green-accent`.
+- Dark backgrounds for public pages, white cards for product cards and forms.
+- Responsive: use `sm:`, `md:`, `lg:`, `xl:` breakpoints. Mobile-first.
+
+## Forms
+
+- Controlled inputs with `useState`.
+- Status pattern: `"idle" | "sending" | "sent" | "error"`.
+- Extract reusable `Field` components per page (not globally shared — each page may style differently).
+
+## Data fetching
+
+- Use `useEffect` + `useState` for fetching. No external data-fetching library.
+- Public API: `api.get/post/put/delete` from `src/lib/api.ts`.
+- Admin API: `adminApi.get/post/put/patch/delete/upload` from `src/lib/adminApi.ts`.
+- Handle loading and error states in each page.
+
+## Icons
+
+- Use `lucide-react` for all icons. Import individually: `import { IconName } from "lucide-react"`.
