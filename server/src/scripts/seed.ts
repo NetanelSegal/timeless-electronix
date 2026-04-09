@@ -55,9 +55,12 @@ async function seed() {
   const BATCH_SIZE = 500;
   let inserted = 0;
 
-  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-    const batch = rows.slice(i, i + BATCH_SIZE).map((row) => ({
-      partNumber: row.part_number,
+  const validRows = rows.filter((row) => row.part_number?.trim());
+  console.log(`  ${rows.length - validRows.length} rows skipped (empty part number)`);
+
+  for (let i = 0; i < validRows.length; i += BATCH_SIZE) {
+    const batch = validRows.slice(i, i + BATCH_SIZE).map((row) => ({
+      partNumber: row.part_number.trim(),
       description: row.description,
       quantity: parseInt(row.quantity, 10) || 0,
       ourReference: row.our_reference,
@@ -68,7 +71,7 @@ async function seed() {
 
     await Product.insertMany(batch);
     inserted += batch.length;
-    console.log(`  Inserted ${inserted}/${rows.length}`);
+    console.log(`  Inserted ${inserted}/${validRows.length}`);
   }
 
   console.log("Seed complete!");
