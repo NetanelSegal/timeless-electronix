@@ -1,0 +1,31 @@
+---
+description: How to work in this repo — read the doc map first, align changes with docs, match existing code, update tasks/progress.
+globs: "**/*"
+alwaysApply: true
+---
+
+# Workflow (Timeless Electronix)
+
+## 1. Orient
+
+- Use root [`AI-DOCS-NAVIGATION.md`](../../AI-DOCS-NAVIGATION.md) to decide which `docs/` folders to read for the task.
+- For ongoing work, check [`docs/06-Development/`](../../docs/06-Development/) (`tasks.md`, `progress.md` when you are tracking work there).
+- If there is application code, follow patterns already in the tree before introducing new ones.
+
+## 2. Plan
+
+- Tie product intent to `docs/03-PRDs`, system shape to `docs/04-Architecture`, and UI to `docs/05-Design` when those places hold the real spec (not empty placeholders).
+- If scope, security, or architecture is unclear or could contradict the written docs, ask the user before proceeding.
+
+## 3. Implement
+
+- Extend existing layout and conventions; avoid parallel stacks or duplicate patterns without a reason documented in `docs/`.
+
+## 4. Verify
+
+- If the repo defines checks (scripts, CI, etc.), run them and fix failures. Do not invent commands that are not in this repository.
+
+## 5. Write it back
+
+- After substantive work, update `docs/06-Development/tasks.md` and `docs/06-Development/progress.md` when those files are part of how this project tracks work.
+- If you change how or what we test, note it in `docs/07-Tests` when that folder is in use.
