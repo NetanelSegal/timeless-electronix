@@ -7,7 +7,6 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc && tsx src/scripts/buildSitemap.ts",
     "start": "node dist/index.js",
-    "seed": "tsx src/scripts/seed.ts",
     "lint": "eslint src/",
     "test": "vitest run"
   },
