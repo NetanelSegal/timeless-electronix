@@ -13,7 +13,13 @@ import {
   uploadToCloudinary,
   deleteFromCloudinary,
 } from '../services/cloudinary.js';
-import { parsePageLimit, buildSearchFilter } from '../utils/helpers.js';
+import {
+  parsePageLimit,
+  buildSearchFilter,
+  buildMongoSortSpec,
+  mergeAndFilters,
+  parseQueryBoolean,
+} from '../utils/helpers.js';
 import {
   effectiveImageUrls,
   isPermutationOf,
@@ -76,11 +82,31 @@ router.get('/products', async (req, res, next) => {
     const filter = buildSearchFilter(query.search || '', [
       'partNumber',
       'manufacturer',
+      'ourReference',
+      'description',
     ]);
+
+    const sortSpec = buildMongoSortSpec(query, {
+      allowlist: [
+        'updatedAt',
+        'partNumber',
+        'manufacturer',
+        'quantity',
+        'ourReference',
+      ],
+      fallback: { field: 'updatedAt', order: 'desc' },
+      fieldDefaultOrder: {
+        updatedAt: 'desc',
+        partNumber: 'asc',
+        manufacturer: 'asc',
+        quantity: 'desc',
+        ourReference: 'asc',
+      },
+    });
 
     const [products, total] = await Promise.all([
       Product.find(filter)
-        .sort({ updatedAt: -1 })
+        .sort(sortSpec)
         .skip((page - 1) * limit)
         .limit(limit)
         .lean(),
@@ -320,18 +346,38 @@ router.put('/products/:id/images', async (req, res, next) => {
 // --- Messages ---
 router.get('/messages', async (req, res, next) => {
   try {
-    const { page, limit } = parsePageLimit(
-      req.query as Record<string, string>,
-      { limit: 50, maxLimit: 200 },
-    );
+    const query = req.query as Record<string, string>;
+    const { page, limit } = parsePageLimit(query, { limit: 50, maxLimit: 200 });
+
+    const searchFilter = buildSearchFilter(query.search || '', [
+      'fullName',
+      'email',
+      'company',
+      'message',
+    ]);
+    const readFilter: Record<string, unknown> = {};
+    const readVal = parseQueryBoolean(query.isRead);
+    if (readVal !== undefined) readFilter.isRead = readVal;
+
+    const filter = mergeAndFilters(searchFilter, readFilter);
+
+    const sortSpec = buildMongoSortSpec(query, {
+      allowlist: ['createdAt', 'fullName', 'isRead'],
+      fallback: { field: 'createdAt', order: 'desc' },
+      fieldDefaultOrder: {
+        createdAt: 'desc',
+        fullName: 'asc',
+        isRead: 'asc',
+      },
+    });
 
     const [messages, total] = await Promise.all([
-      ContactMessage.find()
-        .sort({ createdAt: -1 })
+      ContactMessage.find(filter)
+        .sort(sortSpec)
         .skip((page - 1) * limit)
         .limit(limit)
         .lean(),
-      ContactMessage.countDocuments(),
+      ContactMessage.countDocuments(filter),
     ]);
 
     res.json({ messages, total, page, totalPages: Math.ceil(total / limit) });
@@ -372,12 +418,32 @@ router.get('/quotes', async (req, res, next) => {
     const query = req.query as Record<string, string>;
     const { page, limit } = parsePageLimit(query, { limit: 50, maxLimit: 200 });
 
-    const filter: Record<string, unknown> = {};
-    if (query.status) filter.status = query.status;
+    const statusFilter: Record<string, unknown> = {};
+    if (query.status) statusFilter.status = query.status;
+
+    const searchFilter = buildSearchFilter(query.search || '', [
+      'customerName',
+      'customerEmail',
+      'customerCompany',
+      'message',
+    ]);
+
+    const filter = mergeAndFilters(statusFilter, searchFilter);
+
+    const sortSpec = buildMongoSortSpec(query, {
+      allowlist: ['createdAt', 'status', 'customerName', 'customerEmail'],
+      fallback: { field: 'createdAt', order: 'desc' },
+      fieldDefaultOrder: {
+        createdAt: 'desc',
+        status: 'asc',
+        customerName: 'asc',
+        customerEmail: 'asc',
+      },
+    });
 
     const [quotes, total] = await Promise.all([
       QuoteRequest.find(filter)
-        .sort({ createdAt: -1 })
+        .sort(sortSpec)
         .skip((page - 1) * limit)
         .limit(limit)
         .lean(),

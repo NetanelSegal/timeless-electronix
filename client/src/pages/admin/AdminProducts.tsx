@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, type FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Search,
   Plus,
@@ -9,6 +10,8 @@ import {
   ChevronUp,
   ChevronDown,
   Loader2,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { adminApi } from "../../lib/adminApi";
 import type { Product, ProductsResponse } from "../../lib/types";
@@ -16,9 +19,50 @@ import Pagination from "../../components/Pagination";
 import CloudinaryImage from "../../components/CloudinaryImage";
 import { useAsyncQuery } from "../../hooks/useAsyncQuery";
 
+const ADMIN_PAGE_SIZE = 50;
+
+const ADMIN_PRODUCT_SORT_FIELDS = [
+  "updatedAt",
+  "partNumber",
+  "manufacturer",
+  "quantity",
+  "ourReference",
+] as const;
+
+const ADMIN_PRODUCT_FIELD_ORDER: Record<string, "asc" | "desc"> = {
+  updatedAt: "desc",
+  partNumber: "asc",
+  manufacturer: "asc",
+  quantity: "desc",
+  ourReference: "asc",
+};
+
+function effectiveAdminProductSort(searchParams: URLSearchParams): {
+  field: string;
+  order: "asc" | "desc";
+} {
+  const raw = searchParams.get("sort")?.trim();
+  const field =
+    raw &&
+    (ADMIN_PRODUCT_SORT_FIELDS as readonly string[]).includes(raw)
+      ? raw
+      : "updatedAt";
+  const o = searchParams.get("order")?.toLowerCase();
+  const order: "asc" | "desc" =
+    o === "asc" || o === "desc" ? o : ADMIN_PRODUCT_FIELD_ORDER[field] ?? "desc";
+  return { field, order };
+}
+
 export default function AdminProducts() {
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchFromUrl = searchParams.get("search") || "";
+  const pageParam = parseInt(searchParams.get("page") || "1", 10);
+  const page =
+    Number.isFinite(pageParam) && pageParam >= 1 ? pageParam : 1;
+  const { field: sortField, order: sortOrder } =
+    effectiveAdminProductSort(searchParams);
+
+  const [searchInput, setSearchInput] = useState(searchFromUrl);
   const [actionError, setActionError] = useState("");
   const [editProduct, setEditProduct] = useState<Partial<Product> | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -27,17 +71,63 @@ export default function AdminProducts() {
     null,
   );
 
+  useEffect(() => {
+    setSearchInput(searchFromUrl);
+  }, [searchFromUrl]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const q = searchInput.trim();
+      if (q === searchFromUrl) return;
+      const next = new URLSearchParams(searchParams);
+      if (q) next.set("search", q);
+      else next.delete("search");
+      next.set("page", "1");
+      setSearchParams(next, { replace: true });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [searchInput, searchFromUrl, searchParams, setSearchParams]);
+
+  const setPage = (p: number) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("page", String(p));
+    setSearchParams(next);
+  };
+
+  const setSortColumn = (field: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (sortField === field) {
+      next.set("order", sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      next.set("sort", field);
+      next.set("order", ADMIN_PRODUCT_FIELD_ORDER[field] ?? "desc");
+    }
+    next.set("page", "1");
+    setSearchParams(next);
+  };
+
   const { data, error, loading, refetch } = useAsyncQuery(
     () => {
       const params = new URLSearchParams();
-      if (search) params.set("search", search);
+      if (searchFromUrl) params.set("search", searchFromUrl);
       params.set("page", String(page));
-      params.set("limit", "50");
+      params.set("limit", String(ADMIN_PAGE_SIZE));
+      params.set("sort", sortField);
+      params.set("order", sortOrder);
       return adminApi.get<ProductsResponse>(`/products?${params}`);
     },
-    [search, page],
+    [searchFromUrl, page, sortField, sortOrder],
     { showLoadingOnRefetch: true },
   );
+
+  useEffect(() => {
+    if (!data || data.totalPages < 1) return;
+    if (page > data.totalPages) {
+      const next = new URLSearchParams(searchParams);
+      next.set("page", String(data.totalPages));
+      setSearchParams(next, { replace: true });
+    }
+  }, [data, page, searchParams, setSearchParams]);
 
   useEffect(() => {
     if (!manageImagesFor || !data?.products) return;
@@ -48,9 +138,25 @@ export default function AdminProducts() {
   }, [data, manageImagesFor]);
   const csvRef = useRef<HTMLInputElement>(null);
 
+  const flushSearchToUrl = () => {
+    const next = new URLSearchParams(searchParams);
+    const q = searchInput.trim();
+    if (q) next.set("search", q);
+    else next.delete("search");
+    next.set("page", "1");
+    setSearchParams(next);
+  };
+
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
-    setPage(1);
+    flushSearchToUrl();
+  };
+
+  const clearFilters = () => {
+    const next = new URLSearchParams();
+    next.set("page", "1");
+    setSearchParams(next);
+    setSearchInput("");
   };
 
   const handleDelete = async (id: string) => {
@@ -157,18 +263,20 @@ export default function AdminProducts() {
         <p className="text-red-400 text-sm mb-4">{actionError || error}</p>
       )}
 
-      <form onSubmit={handleSearch} className="flex gap-2 mb-4">
-        <div className="relative flex-1 max-w-md">
+      <form onSubmit={handleSearch} className="flex flex-wrap gap-2 mb-4">
+        <div className="relative flex-1 min-w-[12rem] max-w-md">
           <Search
             size={16}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+            aria-hidden
           />
           <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search products..."
+            type="search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search part number, manufacturer, reference, description…"
             className="w-full pl-9 pr-3 py-2 bg-bg-card border border-border rounded-lg text-sm text-white focus:outline-none focus:border-green-accent"
+            aria-label="Search products"
           />
         </div>
         <button
@@ -177,22 +285,78 @@ export default function AdminProducts() {
         >
           Search
         </button>
+        {(searchFromUrl || sortField !== "updatedAt" || sortOrder !== "desc") && (
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="border border-border px-4 py-2 rounded-lg text-sm text-text-secondary hover:text-white hover:border-green-accent transition-colors"
+          >
+            Clear filters
+          </button>
+        )}
       </form>
 
       {loading ? (
         <p className="text-text-secondary">Loading...</p>
       ) : (
         <>
+          {data && data.total > 0 && (
+            <p className="text-text-secondary text-sm mb-3">
+              {(() => {
+                const from = (page - 1) * ADMIN_PAGE_SIZE + 1;
+                const to = Math.min(page * ADMIN_PAGE_SIZE, data.total);
+                return `Showing ${from.toLocaleString()}–${to.toLocaleString()} of ${data.total.toLocaleString()}`;
+              })()}
+            </p>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
+              <caption className="sr-only">
+                Product inventory. Column headers are buttons that sort the table.
+              </caption>
               <thead>
                 <tr className="border-b border-border text-left text-text-secondary">
-                  <th className="pb-3 pr-4">Part Number</th>
-                  <th className="pb-3 pr-4">Manufacturer</th>
-                  <th className="pb-3 pr-4">Qty</th>
-                  <th className="pb-3 pr-4">Reference</th>
-                  <th className="pb-3 pr-4">Images</th>
-                  <th className="pb-3">Actions</th>
+                  <SortableTh
+                    field="partNumber"
+                    label="Part Number"
+                    sortField={sortField}
+                    sortOrder={sortOrder}
+                    onSort={setSortColumn}
+                  />
+                  <SortableTh
+                    field="manufacturer"
+                    label="Manufacturer"
+                    sortField={sortField}
+                    sortOrder={sortOrder}
+                    onSort={setSortColumn}
+                  />
+                  <SortableTh
+                    field="quantity"
+                    label="Qty"
+                    sortField={sortField}
+                    sortOrder={sortOrder}
+                    onSort={setSortColumn}
+                  />
+                  <SortableTh
+                    field="ourReference"
+                    label="Reference"
+                    sortField={sortField}
+                    sortOrder={sortOrder}
+                    onSort={setSortColumn}
+                  />
+                  <SortableTh
+                    field="updatedAt"
+                    label="Updated"
+                    sortField={sortField}
+                    sortOrder={sortOrder}
+                    onSort={setSortColumn}
+                  />
+                  <th scope="col" className="pb-3 pr-4 font-medium">
+                    Images
+                  </th>
+                  <th scope="col" className="pb-3 font-medium">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -207,6 +371,9 @@ export default function AdminProducts() {
                     </td>
                     <td className="py-3 pr-4 text-text-secondary">
                       {p.ourReference}
+                    </td>
+                    <td className="py-3 pr-4 text-text-secondary whitespace-nowrap">
+                      {new Date(p.updatedAt).toLocaleDateString()}
                     </td>
                     <td className="py-3 pr-4">
                       <div
@@ -275,19 +442,23 @@ export default function AdminProducts() {
                     <td className="py-3">
                       <div className="flex gap-2">
                         <button
+                          type="button"
                           onClick={() => {
                             setEditProduct(p);
                             setShowForm(true);
                           }}
                           className="text-text-secondary hover:text-green-accent"
+                          aria-label={`Edit product ${p.partNumber}`}
                         >
-                          <Pencil size={14} />
+                          <Pencil size={14} aria-hidden />
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleDelete(p._id)}
                           className="text-text-secondary hover:text-red-400"
+                          aria-label={`Delete product ${p.partNumber}`}
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={14} aria-hidden />
                         </button>
                       </div>
                     </td>
@@ -297,7 +468,20 @@ export default function AdminProducts() {
             </table>
           </div>
 
-          {data && (
+          {data && data.products.length === 0 && (
+            <p className="text-text-secondary text-sm py-8">
+              No products match your search or filters.{" "}
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="text-green-accent hover:underline"
+              >
+                Clear filters
+              </button>
+            </p>
+          )}
+
+          {data && data.products.length > 0 && (
             <Pagination page={page} totalPages={data.totalPages} onPageChange={setPage} />
           )}
         </>
@@ -323,6 +507,57 @@ export default function AdminProducts() {
         />
       )}
     </div>
+  );
+}
+
+function SortableTh({
+  field,
+  label,
+  sortField,
+  sortOrder,
+  onSort,
+}: {
+  field: string;
+  label: string;
+  sortField: string;
+  sortOrder: "asc" | "desc";
+  onSort: (field: string) => void;
+}) {
+  const active = sortField === field;
+  const ariaSort = active
+    ? sortOrder === "asc"
+      ? "ascending"
+      : "descending"
+    : "none";
+  return (
+    <th
+      scope="col"
+      aria-sort={ariaSort}
+      className="pb-3 pr-4 font-medium align-bottom"
+    >
+      <button
+        type="button"
+        onClick={() => onSort(field)}
+        className="inline-flex items-center gap-1 max-w-full text-left text-text-secondary hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-green-accent rounded"
+      >
+        <span>{label}</span>
+        {active ? (
+          sortOrder === "asc" ? (
+            <ArrowUp
+              size={14}
+              className="shrink-0 text-green-accent"
+              aria-hidden
+            />
+          ) : (
+            <ArrowDown
+              size={14}
+              className="shrink-0 text-green-accent"
+              aria-hidden
+            />
+          )
+        ) : null}
+      </button>
+    </th>
   );
 }
 

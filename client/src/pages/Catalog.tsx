@@ -1,14 +1,20 @@
-import { Search, SlidersHorizontal } from "lucide-react";
+import { Search, SlidersHorizontal, ArrowDownUp } from "lucide-react";
 import ProductCard from "../components/ProductCard";
 import Pagination from "../components/Pagination";
-import { useCatalog } from "../hooks/useCatalog";
+import {
+  CATALOG_SORT_OPTIONS,
+  useCatalog,
+} from "../hooks/useCatalog";
 import PageSeo from "../components/PageSeo";
 import { COMPANY } from "../lib/constants";
+
+const CATALOG_PAGE_SIZE = 24;
 
 export default function Catalog() {
   const {
     manufacturer,
     page,
+    sortPresetValue,
     searchInput,
     setSearchInput,
     manufacturers,
@@ -16,8 +22,18 @@ export default function Catalog() {
     loading,
     handleSearch,
     setMfg,
+    setSortPreset,
     goToPage,
   } = useCatalog();
+
+  const rangeLabel =
+    products && products.total > 0
+      ? (() => {
+          const from = (page - 1) * CATALOG_PAGE_SIZE + 1;
+          const to = Math.min(page * CATALOG_PAGE_SIZE, products.total);
+          return `Showing ${from.toLocaleString()}–${to.toLocaleString()} of ${products.total.toLocaleString()}`;
+        })()
+      : null;
 
   return (
     <>
@@ -68,24 +84,57 @@ export default function Catalog() {
 
       <section className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-          <div className="flex items-center gap-3">
-            <SlidersHorizontal size={16} className="text-text-secondary" />
-            <span className="text-text-secondary text-sm">Filter:</span>
-            <select
-              value={manufacturer}
-              onChange={(e) => setMfg(e.target.value)}
-              className="bg-bg-card border border-border text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-accent"
-            >
-              <option value="">All Manufacturers</option>
-              {manufacturers.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-3">
+              <SlidersHorizontal
+                size={16}
+                className="text-text-secondary shrink-0"
+                aria-hidden
+              />
+              <label htmlFor="catalog-mfg" className="text-text-secondary text-sm">
+                Filter
+              </label>
+              <select
+                id="catalog-mfg"
+                value={manufacturer}
+                onChange={(e) => setMfg(e.target.value)}
+                className="bg-bg-card border border-border text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-accent"
+              >
+                <option value="">All Manufacturers</option>
+                {manufacturers.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-3">
+              <ArrowDownUp
+                size={16}
+                className="text-text-secondary shrink-0"
+                aria-hidden
+              />
+              <label htmlFor="catalog-sort" className="text-text-secondary text-sm">
+                Sort by
+              </label>
+              <select
+                id="catalog-sort"
+                value={sortPresetValue}
+                onChange={(e) => setSortPreset(e.target.value)}
+                className="bg-bg-card border border-border text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-accent min-w-[12rem]"
+              >
+                {CATALOG_SORT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <span className="text-text-secondary text-sm">
-            {products ? `${products.total.toLocaleString()} results` : "..."}
+            {loading
+              ? "…"
+              : rangeLabel ?? (products ? "0 results" : "…")}
           </span>
         </div>
 
@@ -107,7 +156,10 @@ export default function Catalog() {
           </>
         ) : (
           <div className="text-center py-20 text-text-secondary">
-            No components found. Try a different search.
+            <p className="mb-2">No components match your filters.</p>
+            <p className="text-sm">
+              Try another search, manufacturer, or sort option.
+            </p>
           </div>
         )}
       </section>

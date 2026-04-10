@@ -26,9 +26,20 @@ interface QuoteData {
   message?: string;
 }
 
+function assertResendOk(
+  result: { data: unknown; error: { message: string; name: string } | null },
+  context: string,
+) {
+  if (!result.error) return;
+  console.error(`[Email] Resend API error (${context}):`, result.error);
+  throw new Error(`Resend: ${result.error.message}`);
+}
+
 export async function sendContactNotification(data: ContactData) {
   if (!resend) {
-    console.log('[Email] Resend not configured, skipping contact notification');
+    console.warn(
+      '[Email] RESEND_API_KEY is missing; contact notification email was not sent.',
+    );
     return;
   }
 
@@ -38,7 +49,7 @@ export async function sendContactNotification(data: ContactData) {
   const phone = escapeHtml(data.phone || 'N/A');
   const message = escapeHtml(data.message);
 
-  await resend.emails.send({
+  const result = await resend.emails.send({
     from: env.FROM_EMAIL,
     to: env.NOTIFICATION_EMAIL,
     subject: `New Contact Message from ${name}`,
@@ -53,11 +64,14 @@ export async function sendContactNotification(data: ContactData) {
       <p>${message}</p>
     `,
   });
+  assertResendOk(result, 'contact');
 }
 
 export async function sendQuoteNotification(data: QuoteData) {
   if (!resend) {
-    console.log('[Email] Resend not configured, skipping quote notification');
+    console.warn(
+      '[Email] RESEND_API_KEY is missing; quote notification email was not sent.',
+    );
     return;
   }
 
@@ -79,7 +93,7 @@ export async function sendQuoteNotification(data: QuoteData) {
     )
     .join('');
 
-  await resend.emails.send({
+  const result = await resend.emails.send({
     from: env.FROM_EMAIL,
     to: env.NOTIFICATION_EMAIL,
     subject: `New Quote Request from ${customerName} (${data.items.length} items)`,
@@ -105,4 +119,5 @@ export async function sendQuoteNotification(data: QuoteData) {
       </table>
     `,
   });
+  assertResendOk(result, 'quote');
 }

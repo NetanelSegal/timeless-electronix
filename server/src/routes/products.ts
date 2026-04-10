@@ -1,6 +1,10 @@
 import { Router } from "express";
 import { Product } from "../models/Product.js";
-import { parsePageLimit, buildSearchFilter } from "../utils/helpers.js";
+import {
+  parsePageLimit,
+  buildSearchFilter,
+  buildMongoSortSpec,
+} from "../utils/helpers.js";
 import { serializeProduct } from "../utils/productImages.js";
 
 const router = Router();
@@ -19,9 +23,20 @@ router.get("/", async (req, res, next) => {
       filter.manufacturer = manufacturer;
     }
 
+    const sortSpec = buildMongoSortSpec(query, {
+      allowlist: ["quantity", "partNumber", "manufacturer", "updatedAt"],
+      fallback: { field: "quantity", order: "desc" },
+      fieldDefaultOrder: {
+        quantity: "desc",
+        partNumber: "asc",
+        manufacturer: "asc",
+        updatedAt: "desc",
+      },
+    });
+
     const [products, total] = await Promise.all([
       Product.find(filter)
-        .sort({ quantity: -1 })
+        .sort(sortSpec)
         .skip((page - 1) * limit)
         .limit(limit)
         .lean(),
