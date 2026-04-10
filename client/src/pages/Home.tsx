@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { type FormEvent, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import {
   Search,
@@ -7,10 +7,13 @@ import {
   HeartPulse,
   Cpu,
   Globe,
-  Send,
+  type LucideIcon,
 } from "lucide-react";
-import { COMPANY, STATS, CLIENTS } from "../lib/constants";
-import { api } from "../lib/api";
+import { COMPANY, STATS, CLIENTS, INDUSTRIES } from "../lib/constants";
+import ContactForm from "../components/ContactForm";
+import PageSeo from "../components/PageSeo";
+
+const ICON_MAP: Record<string, LucideIcon> = { Shield, HeartPulse, Cpu, Globe };
 
 const BADGES = [
   "Hard-to-find parts",
@@ -32,6 +35,11 @@ export default function Home() {
 
   return (
     <>
+      <PageSeo
+        title={COMPANY.name}
+        description={COMPANY.tagline}
+        path="/"
+      />
       {/* Hero */}
       <section className="relative bg-bg-primary overflow-hidden">
         <div className="absolute inset-0 bg-[url('/hero-bg.jpg')] bg-cover bg-center opacity-30" />
@@ -130,45 +138,43 @@ export default function Home() {
             Trusted Across Critical Sectors
           </h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              {
-                Icon: Shield,
-                title: "Defense & Military",
-                desc: "MOD-certified supplier for defense-grade components",
-              },
-              {
-                Icon: HeartPulse,
-                title: "Medical",
-                desc: "High-reliability parts for life-critical systems",
-              },
-              {
-                Icon: Cpu,
-                title: "Technology",
-                desc: "Cutting-edge components for modern tech solutions",
-              },
-              {
-                Icon: Globe,
-                title: "Global Distribution",
-                desc: "Worldwide shipping with full traceability",
-              },
-            ].map((item) => (
-              <div
-                key={item.title}
-                className="bg-bg-card border border-border rounded-xl p-6 text-center"
-              >
-                <div className="w-14 h-14 mx-auto mb-4 bg-green-brand/20 rounded-full flex items-center justify-center">
-                  <item.Icon size={24} className="text-green-accent" />
+            {INDUSTRIES.map((item) => {
+              const Icon = ICON_MAP[item.icon] ?? Globe;
+              return (
+                <div
+                  key={item.title}
+                  className="bg-bg-card border border-border rounded-xl p-6 text-center"
+                >
+                  <div className="w-14 h-14 mx-auto mb-4 bg-green-brand/20 rounded-full flex items-center justify-center">
+                    <Icon size={24} className="text-green-accent" />
+                  </div>
+                  <h3 className="font-bold mb-2">{item.title}</h3>
+                  <p className="text-text-secondary text-sm">
+                    {item.description}
+                  </p>
                 </div>
-                <h3 className="font-bold mb-2">{item.title}</h3>
-                <p className="text-text-secondary text-sm">{item.desc}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
 
       {/* Contact Form */}
-      <ContactSection />
+      <section className="py-20 px-4">
+        <div className="max-w-3xl mx-auto">
+          <p className="text-green-accent text-sm font-semibold uppercase tracking-wider mb-2 text-center">
+            Get in Touch
+          </p>
+          <h2 className="text-3xl font-bold mb-2 text-center">
+            Contact Our Experts
+          </h2>
+          <p className="text-text-secondary text-center mb-10">
+            Have a sourcing challenge? Send us a message and we&apos;ll respond
+            fast.
+          </p>
+          <ContactForm variant="light" />
+        </div>
+      </section>
 
       {/* Clients */}
       <section className="bg-white text-gray-900 py-16 px-4">
@@ -217,140 +223,3 @@ export default function Home() {
   );
 }
 
-function ContactSection() {
-  const [form, setForm] = useState({
-    fullName: "",
-    company: "",
-    email: "",
-    phone: "",
-    message: "",
-  });
-  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">(
-    "idle",
-  );
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setStatus("sending");
-    try {
-      await api.post("/contact", form);
-      setStatus("sent");
-      setForm({ fullName: "", company: "", email: "", phone: "", message: "" });
-    } catch {
-      setStatus("error");
-    }
-  };
-
-  return (
-    <section className="py-20 px-4">
-      <div className="max-w-3xl mx-auto">
-        <p className="text-green-accent text-sm font-semibold uppercase tracking-wider mb-2 text-center">
-          Get in Touch
-        </p>
-        <h2 className="text-3xl font-bold mb-2 text-center">
-          Contact Our Experts
-        </h2>
-        <p className="text-text-secondary text-center mb-10">
-          Have a sourcing challenge? Send us a message and we&apos;ll respond
-          fast.
-        </p>
-
-        {status === "sent" ? (
-          <div className="bg-green-brand/20 border border-green-accent rounded-lg p-8 text-center">
-            <CheckCircle size={40} className="text-green-accent mx-auto mb-3" />
-            <p className="text-lg font-semibold">Message sent!</p>
-            <p className="text-text-secondary text-sm mt-1">
-              We&apos;ll get back to you shortly.
-            </p>
-          </div>
-        ) : (
-          <form
-            onSubmit={handleSubmit}
-            className="bg-white text-gray-900 rounded-xl p-8 space-y-5"
-          >
-            <div className="grid sm:grid-cols-2 gap-5">
-              <Field
-                label="Full Name"
-                required
-                value={form.fullName}
-                onChange={(v) => setForm({ ...form, fullName: v })}
-              />
-              <Field
-                label="Company"
-                value={form.company}
-                onChange={(v) => setForm({ ...form, company: v })}
-              />
-              <Field
-                label="Email"
-                type="email"
-                required
-                value={form.email}
-                onChange={(v) => setForm({ ...form, email: v })}
-              />
-              <Field
-                label="Phone"
-                value={form.phone}
-                onChange={(v) => setForm({ ...form, phone: v })}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Message <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                required
-                rows={4}
-                placeholder="Tell us about your component needs..."
-                value={form.message}
-                onChange={(e) => setForm({ ...form, message: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:border-green-brand"
-              />
-            </div>
-            {status === "error" && (
-              <p className="text-red-500 text-sm">
-                Failed to send. Please try again.
-              </p>
-            )}
-            <button
-              type="submit"
-              disabled={status === "sending"}
-              className="w-full bg-green-brand hover:bg-green-accent text-white py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
-            >
-              <Send size={16} />
-              {status === "sending" ? "Sending..." : "Send Message"}
-            </button>
-          </form>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function Field({
-  label,
-  required,
-  type = "text",
-  value,
-  onChange,
-}: {
-  label: string;
-  required?: boolean;
-  type?: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div>
-      <label className="block text-sm font-medium mb-1">
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
-      <input
-        type={type}
-        required={required}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:border-green-brand"
-      />
-    </div>
-  );
-}

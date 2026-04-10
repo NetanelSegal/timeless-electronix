@@ -2,13 +2,9 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ShoppingCart, Menu, X } from "lucide-react";
 import { useQuote } from "../context/QuoteContext";
+import { NAV_LINKS } from "../lib/constants";
 
-const NAV_LINKS = [
-  { to: "/", label: "Home" },
-  { to: "/catalog", label: "Product Catalog" },
-  { to: "/about", label: "About Us" },
-  { to: "/contact", label: "Contact" },
-];
+const HEADER_LINKS = NAV_LINKS.filter((l) => l.to !== "/quote");
 
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -32,7 +28,7 @@ export default function Header() {
         </Link>
 
         <nav className="hidden md:flex items-center gap-6">
-          {NAV_LINKS.map((link) => (
+          {HEADER_LINKS.map((link) => (
             <Link
               key={link.to}
               to={link.to}
@@ -71,7 +67,7 @@ export default function Header() {
 
       {mobileOpen && (
         <nav className="md:hidden border-t border-border px-4 py-4 space-y-3 bg-bg-primary">
-          {NAV_LINKS.map((link) => (
+          {HEADER_LINKS.map((link) => (
             <Link
               key={link.to}
               to={link.to}

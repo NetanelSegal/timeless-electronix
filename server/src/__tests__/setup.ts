@@ -7,6 +7,7 @@ vi.stubEnv("ADMIN_SECRET", "test-secret");
 vi.stubEnv("JWT_SECRET", "test-jwt-secret");
 vi.stubEnv("PORT", "3099");
 vi.stubEnv("CLIENT_URL", "http://localhost:5173");
+vi.stubEnv("PUBLIC_SITE_URL", "https://www.example.com");
 vi.stubEnv("CLOUDINARY_CLOUD_NAME", "");
 vi.stubEnv("CLOUDINARY_API_KEY", "");
 vi.stubEnv("CLOUDINARY_API_SECRET", "");

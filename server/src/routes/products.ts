@@ -1,28 +1,19 @@
 import { Router } from "express";
 import { Product } from "../models/Product.js";
+import { parsePageLimit, buildSearchFilter } from "../utils/helpers.js";
+import { serializeProduct } from "../utils/productImages.js";
 
 const router = Router();
 
 router.get("/", async (req, res, next) => {
   try {
-    const {
-      search = "",
-      manufacturer = "",
-      page = "1",
-      limit = "24",
-    } = req.query as Record<string, string>;
+    const query = req.query as Record<string, string>;
+    const { page, limit } = parsePageLimit(query, { limit: 24, maxLimit: 100 });
+    const manufacturer = query.manufacturer || "";
 
-    const pageNum = Math.max(1, parseInt(page, 10) || 1);
-    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 24));
-
-    const filter: Record<string, unknown> = {};
-
-    if (search) {
-      filter.$or = [
-        { partNumber: { $regex: search, $options: "i" } },
-        { manufacturer: { $regex: search, $options: "i" } },
-      ];
-    }
+    const filter: Record<string, unknown> = {
+      ...buildSearchFilter(query.search || "", ["partNumber", "manufacturer"]),
+    };
 
     if (manufacturer) {
       filter.manufacturer = manufacturer;
@@ -31,17 +22,17 @@ router.get("/", async (req, res, next) => {
     const [products, total] = await Promise.all([
       Product.find(filter)
         .sort({ quantity: -1 })
-        .skip((pageNum - 1) * limitNum)
-        .limit(limitNum)
+        .skip((page - 1) * limit)
+        .limit(limit)
         .lean(),
       Product.countDocuments(filter),
     ]);
 
     res.json({
-      products,
+      products: products.map((p) => serializeProduct(p as Record<string, unknown>)),
       total,
-      page: pageNum,
-      totalPages: Math.ceil(total / limitNum),
+      page,
+      totalPages: Math.ceil(total / limit),
     });
   } catch (err) {
     next(err);
@@ -67,7 +58,7 @@ router.get("/:id", async (req, res, next) => {
       res.status(404).json({ error: "Product not found" });
       return;
     }
-    res.json(product);
+    res.json(serializeProduct(product as Record<string, unknown>));
   } catch (err) {
     next(err);
   }

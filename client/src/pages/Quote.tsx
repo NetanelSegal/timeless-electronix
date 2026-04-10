@@ -1,8 +1,15 @@
 import { useState, type FormEvent } from "react";
+import { useSubmitPhase } from "../hooks/useSubmitPhase";
 import { Link } from "react-router-dom";
 import { ShoppingCart, Trash2, Send, CheckCircle, Package } from "lucide-react";
 import { useQuote } from "../context/QuoteContext";
 import { api } from "../lib/api";
+import { TextField } from "../components/TextField";
+import PageSeo from "../components/PageSeo";
+import { COMPANY } from "../lib/constants";
+
+const quoteInputClass =
+  "w-full bg-bg-card border border-border rounded-lg px-4 py-2.5 text-white placeholder:text-gray-500 focus:outline-none focus:border-green-accent";
 
 export default function Quote() {
   const { items, removeItem, updateQuantity, clearItems, itemCount } =
@@ -15,14 +22,11 @@ export default function Quote() {
     customerCompany: "",
     message: "",
   });
-  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">(
-    "idle",
-  );
+  const { status, run } = useSubmitPhase();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setStatus("sending");
-    try {
+    await run(async () => {
       await api.post("/quotes", {
         items: items.map((i) => ({
           partNumber: i.partNumber,
@@ -32,16 +36,19 @@ export default function Quote() {
         })),
         ...customer,
       });
-      setStatus("sent");
       clearItems();
-    } catch {
-      setStatus("error");
-    }
+    });
   };
 
   if (status === "sent") {
     return (
-      <section className="max-w-2xl mx-auto px-4 py-32 text-center">
+      <>
+        <PageSeo
+          title="Quote submitted"
+          description={`Your quote request was sent to ${COMPANY.name}. We will respond shortly.`}
+          path="/quote"
+        />
+        <section className="max-w-2xl mx-auto px-4 py-32 text-center">
         <CheckCircle size={56} className="text-green-accent mx-auto mb-4" />
         <h2 className="text-2xl font-bold mb-2">Quote Submitted!</h2>
         <p className="text-text-secondary mb-6">
@@ -55,12 +62,19 @@ export default function Quote() {
           Continue Browsing
         </Link>
       </section>
+      </>
     );
   }
 
   if (itemCount === 0) {
     return (
-      <section className="max-w-2xl mx-auto px-4 py-32 text-center">
+      <>
+        <PageSeo
+          title="My Quote"
+          description={`Build a quote from the ${COMPANY.name} catalog and submit your component list for pricing.`}
+          path="/quote"
+        />
+        <section className="max-w-2xl mx-auto px-4 py-32 text-center">
         <div className="w-20 h-20 mx-auto bg-bg-card rounded-full flex items-center justify-center mb-6">
           <ShoppingCart size={32} className="text-text-secondary" />
         </div>
@@ -75,11 +89,18 @@ export default function Quote() {
           Browse Catalog
         </Link>
       </section>
+      </>
     );
   }
 
   return (
-    <section className="max-w-4xl mx-auto px-4 py-12">
+    <>
+      <PageSeo
+        title="My Quote"
+        description={`Review your selected electronic components and submit a quote request to ${COMPANY.name}.`}
+        path="/quote"
+      />
+      <section className="max-w-4xl mx-auto px-4 py-12">
       <h1 className="text-3xl font-bold mb-2">My Quote</h1>
       <p className="text-text-secondary mb-8">
         {itemCount} {itemCount === 1 ? "item" : "items"} in your quote
@@ -133,28 +154,32 @@ export default function Quote() {
       <form onSubmit={handleSubmit} className="space-y-5">
         <h2 className="text-xl font-bold">Your Details</h2>
         <div className="grid sm:grid-cols-2 gap-5">
-          <Field
+          <TextField
             label="Name"
             required
             value={customer.customerName}
             onChange={(v) => setCustomer({ ...customer, customerName: v })}
+            inputClassName={quoteInputClass}
           />
-          <Field
+          <TextField
             label="Company"
             value={customer.customerCompany}
             onChange={(v) => setCustomer({ ...customer, customerCompany: v })}
+            inputClassName={quoteInputClass}
           />
-          <Field
+          <TextField
             label="Email"
             type="email"
             required
             value={customer.customerEmail}
             onChange={(v) => setCustomer({ ...customer, customerEmail: v })}
+            inputClassName={quoteInputClass}
           />
-          <Field
+          <TextField
             label="Phone"
             value={customer.customerPhone}
             onChange={(v) => setCustomer({ ...customer, customerPhone: v })}
+            inputClassName={quoteInputClass}
           />
         </div>
         <div>
@@ -187,34 +212,6 @@ export default function Quote() {
         </button>
       </form>
     </section>
-  );
-}
-
-function Field({
-  label,
-  required,
-  type = "text",
-  value,
-  onChange,
-}: {
-  label: string;
-  required?: boolean;
-  type?: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div>
-      <label className="block text-sm font-medium mb-1">
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
-      <input
-        type={type}
-        required={required}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-bg-card border border-border rounded-lg px-4 py-2.5 text-white placeholder:text-gray-500 focus:outline-none focus:border-green-accent"
-      />
-    </div>
+    </>
   );
 }

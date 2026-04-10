@@ -22,7 +22,7 @@ export default function AdminLayout() {
 
   useEffect(() => {
     if (!isAuthenticated()) {
-      navigate("/admin/login");
+      navigate("/admin/login", { replace: true });
     }
   }, [navigate]);
 

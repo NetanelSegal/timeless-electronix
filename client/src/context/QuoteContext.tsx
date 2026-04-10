@@ -8,6 +8,31 @@ import {
 } from "react";
 import type { QuoteItem } from "../lib/types";
 
+function normalizeStoredItems(raw: unknown): QuoteItem[] {
+  if (!Array.isArray(raw)) return [];
+  const out: QuoteItem[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== "object") continue;
+    const o = row as Record<string, unknown>;
+    if (typeof o.productId !== "string" || !o.productId.trim()) continue;
+    const qty =
+      typeof o.quantity === "number" &&
+      Number.isFinite(o.quantity) &&
+      o.quantity >= 1
+        ? Math.min(Math.floor(o.quantity), 1_000_000_000)
+        : 1;
+    out.push({
+      productId: o.productId,
+      partNumber: typeof o.partNumber === "string" ? o.partNumber : "",
+      manufacturer: typeof o.manufacturer === "string" ? o.manufacturer : "",
+      quantity: qty,
+      ourReference:
+        typeof o.ourReference === "string" ? o.ourReference : "",
+    });
+  }
+  return out;
+}
+
 interface QuoteContextValue {
   items: QuoteItem[];
   addItem: (item: QuoteItem) => void;
@@ -24,7 +49,7 @@ const STORAGE_KEY = "timeless-quote-items";
 function loadFromStorage(): QuoteItem[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as QuoteItem[]) : [];
+    return raw ? normalizeStoredItems(JSON.parse(raw)) : [];
   } catch {
     return [];
   }

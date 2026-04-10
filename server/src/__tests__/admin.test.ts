@@ -75,6 +75,46 @@ describe("Admin API", () => {
       expect(deleteRes.status).toBe(200);
       expect(deleteRes.body.success).toBe(true);
     });
+
+    it("Product images: reorder, delete, reject invalid reorder", async () => {
+      const token = await getAdminToken();
+
+      const createRes = await request(app)
+        .post("/api/admin/products")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ partNumber: "IMG-CRUD", manufacturer: "X", quantity: 1 });
+      expect(createRes.status).toBe(201);
+      expect(createRes.body.imageUrls).toEqual([]);
+      expect(createRes.body.imageUrl).toBeUndefined();
+      const id = createRes.body._id as string;
+
+      await Product.findByIdAndUpdate(id, {
+        imageUrls: ["https://a.example/a.jpg", "https://a.example/b.jpg"],
+      });
+
+      const reorderRes = await request(app)
+        .put(`/api/admin/products/${id}/images`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ imageUrls: ["https://a.example/b.jpg", "https://a.example/a.jpg"] });
+      expect(reorderRes.status).toBe(200);
+      expect(reorderRes.body.imageUrls).toEqual([
+        "https://a.example/b.jpg",
+        "https://a.example/a.jpg",
+      ]);
+
+      const badReorder = await request(app)
+        .put(`/api/admin/products/${id}/images`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ imageUrls: ["https://a.example/b.jpg"] });
+      expect(badReorder.status).toBe(400);
+
+      const delRes = await request(app)
+        .delete(`/api/admin/products/${id}/images`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ url: "https://a.example/a.jpg" });
+      expect(delRes.status).toBe(200);
+      expect(delRes.body.imageUrls).toEqual(["https://a.example/b.jpg"]);
+    });
   });
 
   describe("Messages", () => {

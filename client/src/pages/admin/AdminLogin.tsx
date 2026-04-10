@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Lock } from "lucide-react";
-import { setToken } from "../../lib/adminApi";
+import { adminApiBase, setToken } from "../../lib/adminApi";
 
 export default function AdminLogin() {
   const [secret, setSecret] = useState("");
@@ -14,7 +14,7 @@ export default function AdminLogin() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/admin/login", {
+      const res = await fetch(`${adminApiBase}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ secret }),

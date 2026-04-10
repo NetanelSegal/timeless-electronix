@@ -1,14 +1,6 @@
 import { Link } from "react-router-dom";
 import { Phone, Mail, Printer, MessageCircle, Shield } from "lucide-react";
-import { COMPANY } from "../lib/constants";
-
-const NAV_LINKS = [
-  { to: "/", label: "Home" },
-  { to: "/catalog", label: "Product Catalog" },
-  { to: "/about", label: "About Us" },
-  { to: "/contact", label: "Contact" },
-  { to: "/quote", label: "My Quote" },
-];
+import { COMPANY, NAV_LINKS } from "../lib/constants";
 
 export default function Footer() {
   return (

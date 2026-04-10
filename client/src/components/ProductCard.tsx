@@ -1,6 +1,8 @@
+import { Link } from "react-router-dom";
 import { Package, ShoppingCart, Check } from "lucide-react";
 import type { Product } from "../lib/types";
 import { useQuote } from "../context/QuoteContext";
+import CloudinaryImage from "./CloudinaryImage";
 
 interface Props {
   product: Product;
@@ -11,20 +13,38 @@ export default function ProductCard({ product }: Props) {
   const isInQuote = items.some((i) => i.productId === product._id);
 
   const handleAdd = () => {
+    const qty = Number(product.quantity);
+    const quantity =
+      Number.isFinite(qty) && qty >= 1 ? Math.floor(qty) : 1;
     addItem({
       productId: product._id,
       partNumber: product.partNumber,
       manufacturer: product.manufacturer,
-      quantity: product.quantity,
+      quantity,
       ourReference: product.ourReference,
     });
   };
 
   return (
     <div className="bg-white text-gray-900 rounded-lg p-5 flex flex-col gap-3">
+      {product.imageUrls[0] ? (
+        <CloudinaryImage
+          src={product.imageUrls[0]}
+          alt={product.partNumber}
+          width={400}
+          height={300}
+          className="w-full h-36 object-cover rounded-md -mt-1"
+        />
+      ) : null}
+
       <div className="flex items-start justify-between gap-2">
         <h3 className="font-bold text-sm break-all leading-tight">
-          {product.partNumber}
+          <Link
+            to={`/catalog/${product._id}`}
+            className="text-gray-900 hover:text-green-brand transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-green-brand rounded"
+          >
+            {product.partNumber}
+          </Link>
         </h3>
         <span className="flex items-center gap-1 text-xs text-green-brand font-medium whitespace-nowrap">
           <Package size={12} />
@@ -52,6 +72,13 @@ export default function ProductCard({ product }: Props) {
           </span>
         )}
       </div>
+
+      <Link
+        to={`/catalog/${product._id}`}
+        className="text-center text-xs text-green-accent font-medium hover:underline"
+      >
+        View details
+      </Link>
 
       <button
         onClick={handleAdd}

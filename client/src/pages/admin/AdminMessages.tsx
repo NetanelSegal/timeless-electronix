@@ -1,13 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Mail,
   MailOpen,
   Trash2,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 import { adminApi } from "../../lib/adminApi";
 import type { ContactMessage } from "../../lib/types";
+import Pagination from "../../components/Pagination";
+import { useAsyncQuery } from "../../hooks/useAsyncQuery";
 
 interface MessagesResponse {
   messages: ContactMessage[];
@@ -17,34 +17,42 @@ interface MessagesResponse {
 }
 
 export default function AdminMessages() {
-  const [data, setData] = useState<MessagesResponse | null>(null);
   const [page, setPage] = useState(1);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [mutationError, setMutationError] = useState("");
 
-  const fetchMessages = () => {
-    adminApi
-      .get<MessagesResponse>(`/messages?page=${page}&limit=20`)
-      .then(setData)
-      .catch(console.error);
-  };
-
-  useEffect(() => {
-    fetchMessages();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  const { data, error, loading, refetch } = useAsyncQuery(
+    () =>
+      adminApi.get<MessagesResponse>(`/messages?page=${page}&limit=20`),
+    [page],
+  );
 
   const handleMarkRead = async (id: string) => {
-    await adminApi.patch(`/messages/${id}/read`, {});
-    fetchMessages();
+    setMutationError("");
+    try {
+      await adminApi.patch(`/messages/${id}/read`, {});
+      await refetch();
+    } catch (err) {
+      setMutationError(
+        err instanceof Error ? err.message : "Failed to mark as read",
+      );
+    }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this message?")) return;
-    await adminApi.delete(`/messages/${id}`);
-    fetchMessages();
+    setMutationError("");
+    try {
+      await adminApi.delete(`/messages/${id}`);
+      await refetch();
+    } catch (err) {
+      setMutationError(
+        err instanceof Error ? err.message : "Failed to delete message",
+      );
+    }
   };
 
-  if (!data) {
+  if (loading && !data) {
     return <div className="text-text-secondary">Loading messages...</div>;
   }
 
@@ -52,9 +60,13 @@ export default function AdminMessages() {
     <div>
       <h1 className="text-2xl font-bold mb-6">Contact Messages</h1>
 
-      {data.messages.length === 0 ? (
+      {(error || mutationError) && (
+        <p className="text-red-400 text-sm mb-4">{mutationError || error}</p>
+      )}
+
+      {data && data.messages.length === 0 ? (
         <p className="text-text-secondary">No messages yet.</p>
-      ) : (
+      ) : data && (
         <div className="space-y-2">
           {data.messages.map((msg) => (
             <div
@@ -95,7 +107,7 @@ export default function AdminMessages() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleMarkRead(msg._id);
+                        void handleMarkRead(msg._id);
                       }}
                       className="text-text-secondary hover:text-green-accent text-xs"
                       title="Mark read"
@@ -106,7 +118,7 @@ export default function AdminMessages() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleDelete(msg._id);
+                      void handleDelete(msg._id);
                     }}
                     className="text-text-secondary hover:text-red-400"
                     title="Delete"
@@ -136,26 +148,8 @@ export default function AdminMessages() {
         </div>
       )}
 
-      {data.totalPages > 1 && (
-        <div className="flex items-center justify-center gap-4 mt-6">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1}
-            className="p-2 border border-border rounded hover:border-green-accent disabled:opacity-30"
-          >
-            <ChevronLeft size={16} />
-          </button>
-          <span className="text-sm text-text-secondary">
-            Page {page} of {data.totalPages}
-          </span>
-          <button
-            onClick={() => setPage((p) => p + 1)}
-            disabled={page >= data.totalPages}
-            className="p-2 border border-border rounded hover:border-green-accent disabled:opacity-30"
-          >
-            <ChevronRight size={16} />
-          </button>
-        </div>
+      {data && (
+        <Pagination page={page} totalPages={data.totalPages} onPageChange={setPage} />
       )}
     </div>
   );

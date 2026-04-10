@@ -40,3 +40,11 @@ export const INDUSTRIES = [
 ] as const;
 
 export const CLIENTS = ["MAGAL", "one", "IDF", "MOD", "TADIRAN"] as const;
+
+export const NAV_LINKS = [
+  { to: "/", label: "Home" },
+  { to: "/catalog", label: "Product Catalog" },
+  { to: "/about", label: "About Us" },
+  { to: "/contact", label: "Contact" },
+  { to: "/quote", label: "My Quote" },
+] as const;

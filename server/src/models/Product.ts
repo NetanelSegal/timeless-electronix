@@ -7,6 +7,9 @@ export interface IProduct extends Document {
   ourReference: string;
   manufacturer: string;
   dateCode: string;
+  /** Canonical list in API; legacy rows may only have `imageUrl`. */
+  imageUrls: string[];
+  /** @deprecated Legacy single image; merged into `imageUrls` on read. */
   imageUrl?: string;
   isSample: boolean;
   createdAt: Date;
@@ -21,6 +24,7 @@ const productSchema = new Schema<IProduct>(
     ourReference: { type: String, default: "" },
     manufacturer: { type: String, default: "", index: true },
     dateCode: { type: String, default: "" },
+    imageUrls: { type: [String], default: [] },
     imageUrl: { type: String },
     isSample: { type: Boolean, default: false },
   },

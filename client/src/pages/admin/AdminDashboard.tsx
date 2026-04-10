@@ -1,21 +1,16 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Package, FileText, MessageSquare, AlertCircle } from "lucide-react";
 import { adminApi } from "../../lib/adminApi";
 import type { AdminStats } from "../../lib/types";
+import { useAsyncQuery } from "../../hooks/useAsyncQuery";
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState<AdminStats | null>(null);
-  const [error, setError] = useState("");
+  const { data: stats, error, loading } = useAsyncQuery(
+    () => adminApi.get<AdminStats>("/stats"),
+    [],
+  );
 
-  useEffect(() => {
-    adminApi
-      .get<AdminStats>("/stats")
-      .then(setStats)
-      .catch((err: Error) => setError(err.message));
-  }, []);
-
-  if (error) {
+  if (error && !stats) {
     return (
       <div className="text-red-400 flex items-center gap-2">
         <AlertCircle size={18} /> {error}
@@ -23,7 +18,7 @@ export default function AdminDashboard() {
     );
   }
 
-  if (!stats) {
+  if (loading || !stats) {
     return <div className="text-text-secondary">Loading dashboard...</div>;
   }
 

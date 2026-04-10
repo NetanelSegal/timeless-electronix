@@ -123,3 +123,10 @@ The app is designed to be deployable anywhere:
 - **Server**: Node.js process deployable to any host (Railway, Render, VPS, container).
 - **Database**: Any MongoDB instance (Atlas, self-hosted, container).
 - The Vite dev proxy (`/api` → localhost:3001) handles dev; in production, configure a reverse proxy or same-origin setup.
+
+### SEO (split static + API hosting)
+
+- **SPA fallback**: Client-side routes (e.g. `/catalog/:id`) must return `index.html` with HTTP 200. The repo includes [`client/public/_redirects`](../../client/public/_redirects) (Netlify, Cloudflare Pages–style) and [`client/vercel.json`](../../client/vercel.json) (Vercel rewrites). Use the file that matches your static host.
+- **Canonical URLs & social tags**: Set `VITE_PUBLIC_SITE_URL` (no trailing slash) in the client environment at Vite build time.
+- **robots.txt (static site)**: Committed at [`client/public/robots.txt`](../../client/public/robots.txt). Edit the **`Sitemap:`** line to your deployed API origin + **`/sitemap.xml`** (Express root, not `/api`).
+- **Sitemap (API, build-time)**: **`npm run build`** on the server runs **`buildSitemap.ts`** after `tsc`, writing **`dist/sitemap.xml`** from MongoDB using **`PUBLIC_SITE_URL`** for all `<loc>` values. In **`NODE_ENV=production`**, **`GET /sitemap.xml`** serves that file when present; otherwise it generates from the DB (dev/tests). Production deploys should set **`NODE_ENV=production`** and run a full server build with **`MONGODB_URI`** available.

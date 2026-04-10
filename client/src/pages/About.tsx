@@ -10,6 +10,8 @@ import {
   Cpu,
   Factory,
 } from "lucide-react";
+import { COMPANY } from "../lib/constants";
+import PageSeo from "../components/PageSeo";
 
 const VALUES = [
   {
@@ -70,6 +72,11 @@ const SECTORS = [
 export default function About() {
   return (
     <>
+      <PageSeo
+        title="About Us"
+        description={`${COMPANY.name} is a certified MOD supplier with 30+ years sourcing electronic components for defense, medical, industrial, and technology sectors worldwide.`}
+        path="/about"
+      />
       {/* Hero */}
       <section className="relative bg-bg-secondary overflow-hidden">
         <div className="absolute inset-0 bg-[url('/hero-bg.jpg')] bg-cover bg-center opacity-20" />
@@ -110,7 +117,7 @@ export default function About() {
             </p>
             <p>
               Our certification as an official Ministry of Defense (MOD) supplier
-              — ID: 11006221 — reflects the high standards of quality,
+              — ID: {COMPANY.modId} — reflects the high standards of quality,
               traceability, and reliability we maintain across all operations.
             </p>
           </div>

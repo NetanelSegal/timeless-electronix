@@ -6,7 +6,7 @@ export interface Product {
   ourReference: string;
   manufacturer: string;
   dateCode: string;
-  imageUrl?: string;
+  imageUrls: string[];
   isSample: boolean;
   createdAt: string;
   updatedAt: string;

@@ -1,34 +1,16 @@
-import { useState, type FormEvent } from "react";
-import { Phone, Printer, Mail, Send, CheckCircle } from "lucide-react";
+import { Phone, Printer, Mail } from "lucide-react";
 import { COMPANY } from "../lib/constants";
-import { api } from "../lib/api";
+import ContactForm from "../components/ContactForm";
+import PageSeo from "../components/PageSeo";
 
 export default function Contact() {
-  const [form, setForm] = useState({
-    fullName: "",
-    company: "",
-    email: "",
-    phone: "",
-    message: "",
-  });
-  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">(
-    "idle",
-  );
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setStatus("sending");
-    try {
-      await api.post("/contact", form);
-      setStatus("sent");
-      setForm({ fullName: "", company: "", email: "", phone: "", message: "" });
-    } catch {
-      setStatus("error");
-    }
-  };
-
   return (
     <>
+      <PageSeo
+        title="Contact Us"
+        description={`Reach ${COMPANY.name} for sales, quotes, and sourcing. Phone ${COMPANY.phone}, email ${COMPANY.email}, WhatsApp available.`}
+        path="/contact"
+      />
       {/* Hero */}
       <section className="bg-bg-secondary py-16 px-4">
         <div className="max-w-4xl mx-auto text-center">
@@ -82,72 +64,7 @@ export default function Contact() {
         {/* Form */}
         <div>
           <h2 className="text-2xl font-bold mb-8">Send Us a Message</h2>
-          {status === "sent" ? (
-            <div className="bg-green-brand/20 border border-green-accent rounded-lg p-8 text-center">
-              <CheckCircle
-                size={40}
-                className="text-green-accent mx-auto mb-3"
-              />
-              <p className="font-semibold">Message sent!</p>
-              <p className="text-text-secondary text-sm mt-1">
-                We&apos;ll get back to you shortly.
-              </p>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="grid sm:grid-cols-2 gap-5">
-                <Field
-                  label="Full Name"
-                  required
-                  value={form.fullName}
-                  onChange={(v) => setForm({ ...form, fullName: v })}
-                />
-                <Field
-                  label="Company"
-                  value={form.company}
-                  onChange={(v) => setForm({ ...form, company: v })}
-                />
-                <Field
-                  label="Email"
-                  type="email"
-                  required
-                  value={form.email}
-                  onChange={(v) => setForm({ ...form, email: v })}
-                />
-                <Field
-                  label="Phone"
-                  value={form.phone}
-                  onChange={(v) => setForm({ ...form, phone: v })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Message <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  required
-                  rows={5}
-                  placeholder="Tell us about your component needs..."
-                  value={form.message}
-                  onChange={(e) => setForm({ ...form, message: e.target.value })}
-                  className="w-full bg-bg-card border border-border rounded-lg px-4 py-2.5 text-white placeholder:text-gray-500 focus:outline-none focus:border-green-accent"
-                />
-              </div>
-              {status === "error" && (
-                <p className="text-red-500 text-sm">
-                  Failed to send. Please try again.
-                </p>
-              )}
-              <button
-                type="submit"
-                disabled={status === "sending"}
-                className="w-full bg-green-brand hover:bg-green-accent text-white py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
-              >
-                <Send size={16} />
-                {status === "sending" ? "Sending..." : "Send Message"}
-              </button>
-            </form>
-          )}
+          <ContactForm variant="dark" />
         </div>
       </section>
     </>
@@ -170,35 +87,6 @@ function InfoRow({
         <p className="text-text-secondary text-sm">{label}</p>
         <div className="text-lg font-medium">{children}</div>
       </div>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  required,
-  type = "text",
-  value,
-  onChange,
-}: {
-  label: string;
-  required?: boolean;
-  type?: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div>
-      <label className="block text-sm font-medium mb-1">
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
-      <input
-        type={type}
-        required={required}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-bg-card border border-border rounded-lg px-4 py-2.5 text-white placeholder:text-gray-500 focus:outline-none focus:border-green-accent"
-      />
     </div>
   );
 }

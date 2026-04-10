@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { adminApi } from "../../lib/adminApi";
 import type { QuoteRequest } from "../../lib/types";
+import Pagination from "../../components/Pagination";
+import { useAsyncQuery } from "../../hooks/useAsyncQuery";
 
 interface QuotesResponse {
   quotes: QuoteRequest[];
@@ -20,33 +22,35 @@ const STATUS_COLORS: Record<string, string> = {
 const STATUSES = ["new", "in-progress", "completed", "cancelled"] as const;
 
 export default function AdminQuotes() {
-  const [data, setData] = useState<QuotesResponse | null>(null);
   const [page, setPage] = useState(1);
   const [filterStatus, setFilterStatus] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [mutationError, setMutationError] = useState("");
 
-  const fetchQuotes = () => {
-    const params = new URLSearchParams();
-    params.set("page", String(page));
-    params.set("limit", "20");
-    if (filterStatus) params.set("status", filterStatus);
-    adminApi
-      .get<QuotesResponse>(`/quotes?${params}`)
-      .then(setData)
-      .catch(console.error);
-  };
-
-  useEffect(() => {
-    fetchQuotes();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, filterStatus]);
+  const { data, error, loading, refetch } = useAsyncQuery(
+    () => {
+      const params = new URLSearchParams();
+      params.set("page", String(page));
+      params.set("limit", "20");
+      if (filterStatus) params.set("status", filterStatus);
+      return adminApi.get<QuotesResponse>(`/quotes?${params}`);
+    },
+    [page, filterStatus],
+  );
 
   const handleStatusChange = async (id: string, status: string) => {
-    await adminApi.patch(`/quotes/${id}/status`, { status });
-    fetchQuotes();
+    setMutationError("");
+    try {
+      await adminApi.patch(`/quotes/${id}/status`, { status });
+      await refetch();
+    } catch (err) {
+      setMutationError(
+        err instanceof Error ? err.message : "Failed to update status",
+      );
+    }
   };
 
-  if (!data) {
+  if (loading && !data) {
     return <div className="text-text-secondary">Loading quotes...</div>;
   }
 
@@ -71,9 +75,13 @@ export default function AdminQuotes() {
         </select>
       </div>
 
-      {data.quotes.length === 0 ? (
+      {(error || mutationError) && (
+        <p className="text-red-400 text-sm mb-4">{mutationError || error}</p>
+      )}
+
+      {data && data.quotes.length === 0 ? (
         <p className="text-text-secondary">No quotes found.</p>
-      ) : (
+      ) : data && (
         <div className="space-y-2">
           {data.quotes.map((q) => (
             <div
@@ -106,7 +114,7 @@ export default function AdminQuotes() {
                   value={q.status}
                   onChange={(e) => {
                     e.stopPropagation();
-                    handleStatusChange(q._id, e.target.value);
+                    void handleStatusChange(q._id, e.target.value);
                   }}
                   onClick={(e) => e.stopPropagation()}
                   className={`text-xs px-3 py-1.5 rounded-full border-0 font-medium ${STATUS_COLORS[q.status] || ""}`}
@@ -180,26 +188,8 @@ export default function AdminQuotes() {
         </div>
       )}
 
-      {data.totalPages > 1 && (
-        <div className="flex items-center justify-center gap-4 mt-6">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1}
-            className="p-2 border border-border rounded hover:border-green-accent disabled:opacity-30"
-          >
-            <ChevronLeft size={16} />
-          </button>
-          <span className="text-sm text-text-secondary">
-            Page {page} of {data.totalPages}
-          </span>
-          <button
-            onClick={() => setPage((p) => p + 1)}
-            disabled={page >= data.totalPages}
-            className="p-2 border border-border rounded hover:border-green-accent disabled:opacity-30"
-          >
-            <ChevronRight size={16} />
-          </button>
-        </div>
+      {data && (
+        <Pagination page={page} totalPages={data.totalPages} onPageChange={setPage} />
       )}
     </div>
   );

@@ -3,12 +3,28 @@ import jwt from "jsonwebtoken";
 import multer from "multer";
 import fs from "node:fs";
 import { parse } from "csv-parse";
+import { z } from "zod";
 import { env } from "../config/env.js";
 import { adminAuth } from "../middleware/adminAuth.js";
 import { Product } from "../models/Product.js";
 import { ContactMessage } from "../models/ContactMessage.js";
 import { QuoteRequest } from "../models/QuoteRequest.js";
 import { uploadToCloudinary, deleteFromCloudinary } from "../services/cloudinary.js";
+import { parsePageLimit, buildSearchFilter } from "../utils/helpers.js";
+import {
+  effectiveImageUrls,
+  isPermutationOf,
+  serializeProduct,
+} from "../utils/productImages.js";
+
+const productInputSchema = z.object({
+  partNumber: z.string().min(1),
+  manufacturer: z.string().default(""),
+  description: z.string().default(""),
+  quantity: z.number().int().min(0).default(0),
+  ourReference: z.string().default(""),
+  dateCode: z.string().default(""),
+});
 
 const router = Router();
 const upload = multer({ dest: "uploads/" });
@@ -48,37 +64,24 @@ router.get("/stats", async (_req, res, next) => {
 // --- Products CRUD ---
 router.get("/products", async (req, res, next) => {
   try {
-    const {
-      search = "",
-      page = "1",
-      limit = "50",
-    } = req.query as Record<string, string>;
-
-    const pageNum = Math.max(1, parseInt(page, 10) || 1);
-    const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
-
-    const filter: Record<string, unknown> = {};
-    if (search) {
-      filter.$or = [
-        { partNumber: { $regex: search, $options: "i" } },
-        { manufacturer: { $regex: search, $options: "i" } },
-      ];
-    }
+    const query = req.query as Record<string, string>;
+    const { page, limit } = parsePageLimit(query, { limit: 50, maxLimit: 200 });
+    const filter = buildSearchFilter(query.search || "", ["partNumber", "manufacturer"]);
 
     const [products, total] = await Promise.all([
       Product.find(filter)
         .sort({ updatedAt: -1 })
-        .skip((pageNum - 1) * limitNum)
-        .limit(limitNum)
+        .skip((page - 1) * limit)
+        .limit(limit)
         .lean(),
       Product.countDocuments(filter),
     ]);
 
     res.json({
-      products,
+      products: products.map((p) => serializeProduct(p as Record<string, unknown>)),
       total,
-      page: pageNum,
-      totalPages: Math.ceil(total / limitNum),
+      page,
+      totalPages: Math.ceil(total / limit),
     });
   } catch (err) {
     next(err);
@@ -87,8 +90,9 @@ router.get("/products", async (req, res, next) => {
 
 router.post("/products", async (req, res, next) => {
   try {
-    const product = await Product.create(req.body);
-    res.status(201).json(product);
+    const data = productInputSchema.parse(req.body);
+    const product = await Product.create(data);
+    res.status(201).json(serializeProduct(product.toObject() as unknown as Record<string, unknown>));
   } catch (err) {
     next(err);
   }
@@ -96,14 +100,15 @@ router.post("/products", async (req, res, next) => {
 
 router.put("/products/:id", async (req, res, next) => {
   try {
-    const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
+    const data = productInputSchema.partial().parse(req.body);
+    const product = await Product.findByIdAndUpdate(req.params.id, data, {
       new: true,
     });
     if (!product) {
       res.status(404).json({ error: "Product not found" });
       return;
     }
-    res.json(product);
+    res.json(serializeProduct(product.toObject() as unknown as Record<string, unknown>));
   } catch (err) {
     next(err);
   }
@@ -111,13 +116,15 @@ router.put("/products/:id", async (req, res, next) => {
 
 router.delete("/products/:id", async (req, res, next) => {
   try {
-    const product = await Product.findByIdAndDelete(req.params.id);
-    if (!product) {
+    const existing = await Product.findById(req.params.id).lean();
+    if (!existing) {
       res.status(404).json({ error: "Product not found" });
       return;
     }
-    if (product.imageUrl) {
-      deleteFromCloudinary(product.imageUrl).catch(console.error);
+    const urls = [...new Set(effectiveImageUrls(existing as Record<string, unknown>))];
+    await Product.findByIdAndDelete(req.params.id);
+    for (const u of urls) {
+      deleteFromCloudinary(u).catch(console.error);
     }
     res.json({ success: true });
   } catch (err) {
@@ -171,9 +178,12 @@ router.post("/products/import", upload.single("file"), async (req, res, next) =>
   }
 });
 
-// --- Image Upload ---
+// --- Product images (CRUD) ---
+const deleteImageBodySchema = z.object({ url: z.string().min(1) });
+const reorderImagesBodySchema = z.object({ imageUrls: z.array(z.string()) });
+
 router.post(
-  "/products/:id/image",
+  "/products/:id/images",
   upload.single("image"),
   async (req, res, next) => {
     try {
@@ -182,23 +192,29 @@ router.post(
         return;
       }
 
-      const product = await Product.findById(req.params.id);
-      if (!product) {
+      const current = await Product.findById(req.params.id).lean();
+      if (!current) {
         fs.unlinkSync(req.file.path);
         res.status(404).json({ error: "Product not found" });
         return;
       }
 
-      if (product.imageUrl) {
-        deleteFromCloudinary(product.imageUrl).catch(console.error);
-      }
-
-      const imageUrl = await uploadToCloudinary(req.file.path);
-      product.imageUrl = imageUrl;
-      await product.save();
+      const nextUrls = [...effectiveImageUrls(current as Record<string, unknown>)];
+      const uploadedUrl = await uploadToCloudinary(req.file.path);
       fs.unlinkSync(req.file.path);
+      nextUrls.push(uploadedUrl);
 
-      res.json({ imageUrl });
+      const updated = await Product.findByIdAndUpdate(
+        req.params.id,
+        { $set: { imageUrls: nextUrls }, $unset: { imageUrl: "" } },
+        { new: true },
+      ).lean();
+
+      if (!updated) {
+        res.status(404).json({ error: "Product not found" });
+        return;
+      }
+      res.json(serializeProduct(updated as Record<string, unknown>));
     } catch (err) {
       if (req.file) fs.unlinkSync(req.file.path);
       next(err);
@@ -206,23 +222,79 @@ router.post(
   },
 );
 
+router.delete("/products/:id/images", async (req, res, next) => {
+  try {
+    const { url } = deleteImageBodySchema.parse(req.body);
+    const current = await Product.findById(req.params.id).lean();
+    if (!current) {
+      res.status(404).json({ error: "Product not found" });
+      return;
+    }
+    const urls = effectiveImageUrls(current as Record<string, unknown>);
+    if (!urls.includes(url)) {
+      res.status(400).json({ error: "Image URL not found on this product" });
+      return;
+    }
+    const filtered = urls.filter((u) => u !== url);
+    const updated = await Product.findByIdAndUpdate(
+      req.params.id,
+      { $set: { imageUrls: filtered }, $unset: { imageUrl: "" } },
+      { new: true },
+    ).lean();
+    if (!updated) {
+      res.status(404).json({ error: "Product not found" });
+      return;
+    }
+    deleteFromCloudinary(url).catch(console.error);
+    res.json(serializeProduct(updated as Record<string, unknown>));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put("/products/:id/images", async (req, res, next) => {
+  try {
+    const { imageUrls: bodyUrls } = reorderImagesBodySchema.parse(req.body);
+    const current = await Product.findById(req.params.id).lean();
+    if (!current) {
+      res.status(404).json({ error: "Product not found" });
+      return;
+    }
+    const currentUrls = effectiveImageUrls(current as Record<string, unknown>);
+    if (!isPermutationOf(currentUrls, bodyUrls)) {
+      res.status(400).json({ error: "imageUrls must be a reordering of existing images" });
+      return;
+    }
+    const updated = await Product.findByIdAndUpdate(
+      req.params.id,
+      { $set: { imageUrls: bodyUrls }, $unset: { imageUrl: "" } },
+      { new: true },
+    ).lean();
+    if (!updated) {
+      res.status(404).json({ error: "Product not found" });
+      return;
+    }
+    res.json(serializeProduct(updated as Record<string, unknown>));
+  } catch (err) {
+    next(err);
+  }
+});
+
 // --- Messages ---
 router.get("/messages", async (req, res, next) => {
   try {
-    const { page = "1", limit = "50" } = req.query as Record<string, string>;
-    const pageNum = Math.max(1, parseInt(page, 10) || 1);
-    const limitNum = Math.min(200, parseInt(limit, 10) || 50);
+    const { page, limit } = parsePageLimit(req.query as Record<string, string>, { limit: 50, maxLimit: 200 });
 
     const [messages, total] = await Promise.all([
       ContactMessage.find()
         .sort({ createdAt: -1 })
-        .skip((pageNum - 1) * limitNum)
-        .limit(limitNum)
+        .skip((page - 1) * limit)
+        .limit(limit)
         .lean(),
       ContactMessage.countDocuments(),
     ]);
 
-    res.json({ messages, total, page: pageNum, totalPages: Math.ceil(total / limitNum) });
+    res.json({ messages, total, page, totalPages: Math.ceil(total / limit) });
   } catch (err) {
     next(err);
   }
@@ -257,23 +329,22 @@ router.delete("/messages/:id", async (req, res, next) => {
 // --- Quotes ---
 router.get("/quotes", async (req, res, next) => {
   try {
-    const { page = "1", limit = "50", status } = req.query as Record<string, string>;
-    const pageNum = Math.max(1, parseInt(page, 10) || 1);
-    const limitNum = Math.min(200, parseInt(limit, 10) || 50);
+    const query = req.query as Record<string, string>;
+    const { page, limit } = parsePageLimit(query, { limit: 50, maxLimit: 200 });
 
     const filter: Record<string, unknown> = {};
-    if (status) filter.status = status;
+    if (query.status) filter.status = query.status;
 
     const [quotes, total] = await Promise.all([
       QuoteRequest.find(filter)
         .sort({ createdAt: -1 })
-        .skip((pageNum - 1) * limitNum)
-        .limit(limitNum)
+        .skip((page - 1) * limit)
+        .limit(limit)
         .lean(),
       QuoteRequest.countDocuments(filter),
     ]);
 
-    res.json({ quotes, total, page: pageNum, totalPages: Math.ceil(total / limitNum) });
+    res.json({ quotes, total, page, totalPages: Math.ceil(total / limit) });
   } catch (err) {
     next(err);
   }

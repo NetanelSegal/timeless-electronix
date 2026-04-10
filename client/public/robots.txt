@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /admin
+
+# Sitemap is served from the API host (Express root, not /api). Set this to your deployed API URL.
+Sitemap: https://api.example.com/sitemap.xml
