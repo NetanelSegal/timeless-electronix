@@ -1,5 +1,6 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Package, ShoppingCart, Check } from "lucide-react";
+import { Package, ShoppingCart } from "lucide-react";
 import type { Product } from "../lib/types";
 import { useQuote } from "../context/QuoteContext";
 import CloudinaryImage from "./CloudinaryImage";
@@ -9,13 +10,25 @@ interface Props {
 }
 
 export default function ProductCard({ product }: Props) {
-  const { items, addItem } = useQuote();
+  const { items, addItem, updateQuantity } = useQuote();
+  const [addQty, setAddQty] = useState(1);
   const isInQuote = items.some((i) => i.productId === product._id);
+  const quoteLineQty = items.find((i) => i.productId === product._id)?.quantity;
 
-  const handleAdd = () => {
-    const qty = Number(product.quantity);
-    const quantity =
-      Number.isFinite(qty) && qty >= 1 ? Math.floor(qty) : 1;
+  useEffect(() => {
+    if (quoteLineQty !== undefined) {
+      setAddQty(quoteLineQty);
+    } else {
+      setAddQty(1);
+    }
+  }, [product._id, quoteLineQty]);
+
+  const handleQuoteAction = () => {
+    const quantity = Math.max(1, Math.floor(Number(addQty)) || 1);
+    if (isInQuote) {
+      updateQuantity(product._id, quantity);
+      return;
+    }
     addItem({
       productId: product._id,
       partNumber: product.partNumber,
@@ -80,25 +93,41 @@ export default function ProductCard({ product }: Props) {
         View details
       </Link>
 
-      <button
-        onClick={handleAdd}
-        disabled={isInQuote}
-        className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-          isInQuote
-            ? "bg-gray-100 text-gray-400 cursor-default"
-            : "bg-green-brand hover:bg-green-accent text-white cursor-pointer"
-        }`}
-      >
-        {isInQuote ? (
-          <>
-            <Check size={14} /> Added to Quote
-          </>
-        ) : (
-          <>
-            <ShoppingCart size={14} /> Add to Quote
-          </>
-        )}
-      </button>
+      <div className="flex items-center gap-2">
+        <label className="flex items-center gap-1 text-xs text-gray-500 shrink-0">
+          <span>Qty</span>
+          <input
+            type="number"
+            min={1}
+            value={addQty}
+            onChange={(e) =>
+              setAddQty(Math.max(1, parseInt(e.target.value, 10) || 1))
+            }
+            className="w-14 border border-gray-200 rounded px-1.5 py-1 text-gray-900 text-xs"
+            aria-label={
+              isInQuote
+                ? "Quantity in your quote"
+                : "Quantity to add to quote"
+            }
+            onClick={(e) => e.stopPropagation()}
+          />
+        </label>
+        <button
+          type="button"
+          onClick={handleQuoteAction}
+          className="flex-1 min-w-0 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-colors bg-green-brand hover:bg-green-accent text-white cursor-pointer"
+        >
+          {isInQuote ? (
+            <>
+              <ShoppingCart size={14} /> Update quantity
+            </>
+          ) : (
+            <>
+              <ShoppingCart size={14} /> Add to Quote
+            </>
+          )}
+        </button>
+      </div>
     </div>
   );
 }

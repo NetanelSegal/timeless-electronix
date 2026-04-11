@@ -41,11 +41,12 @@ function productJsonLd(product: Product, canonical: string) {
 
 export default function ProductDetail() {
   const { productId } = useParams<{ productId: string }>();
-  const { items, addItem } = useQuote();
+  const { items, addItem, updateQuantity } = useQuote();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [addQty, setAddQty] = useState(1);
 
   const path = productId ? `/catalog/${productId}` : "/catalog";
 
@@ -84,6 +85,16 @@ export default function ProductDetail() {
       cancelled = true;
     };
   }, [productId]);
+
+  const quoteLineQty = items.find((i) => i.productId === productId)?.quantity;
+
+  useEffect(() => {
+    if (quoteLineQty !== undefined) {
+      setAddQty(quoteLineQty);
+    } else {
+      setAddQty(1);
+    }
+  }, [productId, quoteLineQty]);
 
   if (!isValidObjectId(productId)) {
     return <Navigate to="/catalog" replace />;
@@ -138,10 +149,12 @@ export default function ProductDetail() {
     `${product.partNumber}${product.manufacturer ? ` by ${product.manufacturer}` : ""}. In stock at ${COMPANY.name}. Request a quote online.`;
   const isInQuote = items.some((i) => i.productId === product._id);
 
-  const handleAdd = () => {
-    const qty = Number(product.quantity);
-    const quantity =
-      Number.isFinite(qty) && qty >= 1 ? Math.floor(qty) : 1;
+  const handleQuoteAction = () => {
+    const quantity = Math.max(1, Math.floor(Number(addQty)) || 1);
+    if (isInQuote) {
+      updateQuantity(product._id, quantity);
+      return;
+    }
     addItem({
       productId: product._id,
       partNumber: product.partNumber,
@@ -238,26 +251,47 @@ export default function ProductDetail() {
                   {product.description}
                 </p>
               ) : null}
-              <button
-                type="button"
-                onClick={handleAdd}
-                disabled={isInQuote}
-                className={`w-full sm:w-auto min-w-[200px] flex items-center justify-center gap-2 py-3 px-6 rounded-lg text-sm font-medium transition-colors ${
-                  isInQuote
-                    ? "bg-gray-700 text-gray-400 cursor-default"
-                    : "bg-green-brand hover:bg-green-accent text-white cursor-pointer"
-                }`}
-              >
-                {isInQuote ? (
-                  <>
-                    <Check size={18} /> Added to quote
-                  </>
-                ) : (
-                  <>
-                    <ShoppingCart size={18} /> Add to quote
-                  </>
-                )}
-              </button>
+              <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
+                <label className="flex items-center gap-2 text-sm text-text-secondary">
+                  <span className="whitespace-nowrap">Qty</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={addQty}
+                    onChange={(e) =>
+                      setAddQty(Math.max(1, parseInt(e.target.value, 10) || 1))
+                    }
+                    className="w-24 bg-bg-card border border-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-accent"
+                    aria-label={
+                      isInQuote
+                        ? "Quantity in your quote"
+                        : "Quantity to add to quote"
+                    }
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={handleQuoteAction}
+                  className="w-full sm:w-auto min-w-[200px] flex items-center justify-center gap-2 py-3 px-6 rounded-lg text-sm font-medium transition-colors bg-green-brand hover:bg-green-accent text-white cursor-pointer"
+                >
+                  {isInQuote ? (
+                    <>
+                      <ShoppingCart size={18} /> Update quantity
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingCart size={18} /> Add to quote
+                    </>
+                  )}
+                </button>
+              </div>
+              {isInQuote ? (
+                <p className="text-text-secondary text-xs mt-2 flex items-center gap-1">
+                  <Check size={14} className="text-green-accent shrink-0" />
+                  This part is in your quote; adjust the quantity above and click
+                  Update quantity.
+                </p>
+              ) : null}
             </div>
           </div>
         </div>

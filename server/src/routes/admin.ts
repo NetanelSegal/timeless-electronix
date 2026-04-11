@@ -39,6 +39,17 @@ const productInputSchema = z.object({
   dateCode: z.string().default(''),
 });
 
+const adminQuoteLineItemSchema = z.object({
+  partNumber: z.string().min(1),
+  manufacturer: z.string().default(''),
+  quantity: z.number().int().min(1),
+  ourReference: z.string().default(''),
+});
+
+const adminQuoteItemsPatchSchema = z.object({
+  items: z.array(adminQuoteLineItemSchema).min(1, 'At least one item is required'),
+});
+
 const router = Router();
 const upload = multer({ dest: 'uploads/' });
 
@@ -476,6 +487,28 @@ router.patch('/quotes/:id/status', async (req, res, next) => {
     }
     res.json(quote);
   } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/quotes/:id/items', async (req, res, next) => {
+  try {
+    const data = adminQuoteItemsPatchSchema.parse(req.body);
+    const quote = await QuoteRequest.findByIdAndUpdate(
+      req.params.id,
+      { items: data.items },
+      { new: true },
+    ).lean();
+    if (!quote) {
+      res.status(404).json({ error: 'Quote not found' });
+      return;
+    }
+    res.json(quote);
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid body' });
+      return;
+    }
     next(err);
   }
 });

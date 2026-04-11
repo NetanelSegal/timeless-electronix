@@ -162,5 +162,36 @@ describe("Admin API", () => {
       expect(statusRes.status).toBe(200);
       expect(statusRes.body.status).toBe("completed");
     });
+
+    it("PATCH /quotes/:id/items updates line quantities", async () => {
+      const token = await getAdminToken();
+      const created = await QuoteRequest.create({
+        items: [
+          { partNumber: "P1", manufacturer: "M1", quantity: 10, ourReference: "R1" },
+          { partNumber: "P2", manufacturer: "M2", quantity: 5, ourReference: "" },
+        ],
+        customerName: "Customer",
+        customerEmail: "c2@c.com",
+        status: "new",
+      });
+
+      const patchRes = await request(app)
+        .patch(`/api/admin/quotes/${created._id}/items`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          items: [
+            { partNumber: "P1", manufacturer: "M1", quantity: 250, ourReference: "R1" },
+            { partNumber: "P2", manufacturer: "M2", quantity: 1, ourReference: "" },
+          ],
+        });
+      expect(patchRes.status).toBe(200);
+      expect(patchRes.body.items).toHaveLength(2);
+      expect(patchRes.body.items[0].quantity).toBe(250);
+      expect(patchRes.body.items[1].quantity).toBe(1);
+
+      const fromDb = await QuoteRequest.findById(created._id).lean();
+      expect(fromDb?.items[0].quantity).toBe(250);
+      expect(fromDb?.items[1].quantity).toBe(1);
+    });
   });
 });

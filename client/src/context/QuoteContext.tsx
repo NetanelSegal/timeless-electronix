@@ -45,6 +45,14 @@ interface QuoteContextValue {
 const QuoteContext = createContext<QuoteContextValue | null>(null);
 
 const STORAGE_KEY = "timeless-quote-items";
+const MAX_QUOTE_LINE_QTY = 1_000_000_000;
+
+function clampLineQuantity(q: number): number {
+  if (!Number.isFinite(q)) return 1;
+  const n = Math.floor(q);
+  if (n < 1) return 1;
+  return Math.min(n, MAX_QUOTE_LINE_QTY);
+}
 
 function loadFromStorage(): QuoteItem[] {
   try {
@@ -63,9 +71,16 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
   }, [items]);
 
   const addItem = useCallback((item: QuoteItem) => {
+    const delta = clampLineQuantity(item.quantity);
     setItems((prev) => {
-      if (prev.some((i) => i.productId === item.productId)) return prev;
-      return [...prev, item];
+      const existing = prev.find((i) => i.productId === item.productId);
+      if (existing) {
+        const merged = clampLineQuantity(existing.quantity + delta);
+        return prev.map((i) =>
+          i.productId === item.productId ? { ...i, quantity: merged } : i,
+        );
+      }
+      return [...prev, { ...item, quantity: delta }];
     });
   }, []);
 

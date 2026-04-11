@@ -2,7 +2,7 @@ import { useState, useEffect, type KeyboardEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ChevronDown, ChevronUp, Search } from "lucide-react";
 import { adminApi } from "../../lib/adminApi";
-import type { QuoteRequest } from "../../lib/types";
+import type { QuoteRequest, QuoteRequestLine } from "../../lib/types";
 import Pagination from "../../components/Pagination";
 import { useAsyncQuery } from "../../hooks/useAsyncQuery";
 
@@ -23,6 +23,15 @@ const STATUS_COLORS: Record<string, string> = {
 const STATUSES = ["new", "in-progress", "completed", "cancelled"] as const;
 
 const QUOTE_PAGE_SIZE = 20;
+
+function cloneQuoteLines(items: QuoteRequestLine[]): QuoteRequestLine[] {
+  return items.map((i) => ({
+    partNumber: i.partNumber,
+    manufacturer: i.manufacturer,
+    quantity: i.quantity,
+    ourReference: i.ourReference,
+  }));
+}
 
 const QUOTE_SORT_FIELDS = [
   "createdAt",
@@ -78,6 +87,12 @@ export default function AdminQuotes() {
   const [searchInput, setSearchInput] = useState(searchFromUrl);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState("");
+  const [lineDraftByQuoteId, setLineDraftByQuoteId] = useState<
+    Record<string, QuoteRequestLine[]>
+  >({});
+  const [savingItemsQuoteId, setSavingItemsQuoteId] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     setSearchInput(searchFromUrl);
@@ -178,7 +193,62 @@ export default function AdminQuotes() {
   };
 
   const toggleExpanded = (id: string) => {
-    setExpanded((prev) => (prev === id ? null : id));
+    setExpanded((prev) => {
+      if (prev === id) return null;
+      const quote = data?.quotes.find((x) => x._id === id);
+      if (quote) {
+        setLineDraftByQuoteId((d) => ({
+          ...d,
+          [id]: cloneQuoteLines(quote.items),
+        }));
+      }
+      return id;
+    });
+  };
+
+  const updateDraftQuantity = (
+    quoteId: string,
+    lineIndex: number,
+    raw: string,
+  ) => {
+    const parsed = Math.max(1, Math.floor(parseInt(raw, 10)) || 1);
+    setLineDraftByQuoteId((prev) => {
+      let lines = prev[quoteId];
+      if (!lines && data) {
+        const quote = data.quotes.find((x) => x._id === quoteId);
+        if (!quote) return prev;
+        lines = cloneQuoteLines(quote.items);
+      }
+      if (!lines) return prev;
+      const next = lines.map((row, i) =>
+        i === lineIndex ? { ...row, quantity: parsed } : row,
+      );
+      return { ...prev, [quoteId]: next };
+    });
+  };
+
+  const handleSaveLineItems = async (id: string) => {
+    const items = lineDraftByQuoteId[id];
+    if (!items?.length) return;
+    setMutationError("");
+    setSavingItemsQuoteId(id);
+    try {
+      const updated = await adminApi.patch<QuoteRequest>(
+        `/quotes/${id}/items`,
+        { items },
+      );
+      setLineDraftByQuoteId((prev) => ({
+        ...prev,
+        [id]: cloneQuoteLines(updated.items),
+      }));
+      await refetch();
+    } catch (err) {
+      setMutationError(
+        err instanceof Error ? err.message : "Failed to save line items",
+      );
+    } finally {
+      setSavingItemsQuoteId(null);
+    }
   };
 
   const onRowKeyDown = (e: KeyboardEvent, id: string) => {
@@ -353,6 +423,11 @@ export default function AdminQuotes() {
 
               {expanded === q._id && (
                 <div className="border-t border-border px-4 py-3 bg-bg-primary/50">
+                  {(() => {
+                    const lineRows =
+                      lineDraftByQuoteId[q._id] ?? cloneQuoteLines(q.items);
+                    return (
+                      <>
                   {q.customerCompany && (
                     <p className="text-sm mb-2">
                       <span className="text-text-secondary">Company:</span>{" "}
@@ -392,7 +467,7 @@ export default function AdminQuotes() {
                       </tr>
                     </thead>
                     <tbody>
-                      {q.items.map((item, idx) => (
+                      {lineRows.map((item, idx) => (
                         <tr key={idx} className="border-b border-border/30">
                           <td className="py-1.5 font-medium pr-2">
                             {item.partNumber}
@@ -401,7 +476,16 @@ export default function AdminQuotes() {
                             {item.manufacturer}
                           </td>
                           <td className="py-1.5 pr-2">
-                            {item.quantity.toLocaleString()}
+                            <input
+                              type="number"
+                              min={1}
+                              value={item.quantity}
+                              onChange={(e) =>
+                                updateDraftQuantity(q._id, idx, e.target.value)
+                              }
+                              className="w-24 bg-bg-card border border-border rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-green-accent"
+                              aria-label={`Quantity for ${item.partNumber}`}
+                            />
                           </td>
                           <td className="py-1.5 text-text-secondary">
                             {item.ourReference}
@@ -410,6 +494,21 @@ export default function AdminQuotes() {
                       ))}
                     </tbody>
                   </table>
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      disabled={savingItemsQuoteId === q._id}
+                      onClick={() => void handleSaveLineItems(q._id)}
+                      className="text-sm font-medium px-4 py-2 rounded-lg bg-green-brand hover:bg-green-accent text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {savingItemsQuoteId === q._id
+                        ? "Saving…"
+                        : "Save line items"}
+                    </button>
+                  </div>
+                      </>
+                    );
+                  })()}
                 </div>
               )}
             </div>

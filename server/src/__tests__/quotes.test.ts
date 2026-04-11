@@ -38,4 +38,13 @@ describe("Quotes API", () => {
     });
     expect(res.status).toBe(400);
   });
+
+  it("POST /api/quotes rejects non-positive quantity", async () => {
+    const res = await request(app).post("/api/quotes").send({
+      items: [{ partNumber: "X", manufacturer: "Y", quantity: 0, ourReference: "" }],
+      customerName: "Jane",
+      customerEmail: "jane@example.com",
+    });
+    expect(res.status).toBe(400);
+  });
 });

@@ -35,6 +35,14 @@ export interface QuoteItem {
   ourReference: string;
 }
 
+/** Line item as stored on a submitted quote (no catalog productId). */
+export interface QuoteRequestLine {
+  partNumber: string;
+  manufacturer: string;
+  quantity: number;
+  ourReference: string;
+}
+
 export interface QuoteSubmission {
   items: QuoteItem[];
   customerName: string;
@@ -46,7 +54,7 @@ export interface QuoteSubmission {
 
 export interface QuoteRequest {
   _id: string;
-  items: QuoteItem[];
+  items: QuoteRequestLine[];
   customerName: string;
   customerEmail: string;
   customerPhone: string;

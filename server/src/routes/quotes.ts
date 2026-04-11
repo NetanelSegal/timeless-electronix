@@ -8,7 +8,7 @@ const router = Router();
 const quoteItemSchema = z.object({
   partNumber: z.string().min(1),
   manufacturer: z.string().default(""),
-  quantity: z.number().min(0),
+  quantity: z.number().int().min(1),
   ourReference: z.string().default(""),
 });
 
