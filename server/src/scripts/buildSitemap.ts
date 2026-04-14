@@ -9,7 +9,7 @@ const outPath = path.resolve(process.cwd(), 'dist/sitemap.xml');
 async function main() {
   console.log('buildSitemap: connecting to MongoDB...');
   await mongoose.connect(env.MONGODB_URI);
-  const xml = await buildSitemapXmlString(env.PUBLIC_SITE_URL);
+  const xml = await buildSitemapXmlString(env.CLIENT_URL);
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, xml, 'utf8');
   await mongoose.disconnect();
