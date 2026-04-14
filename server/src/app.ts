@@ -12,22 +12,22 @@ import { sendSitemapXml } from './utils/sitemap.js';
 
 const app = express();
 
-const sitemapPath = path.join(process.cwd(), "dist", "sitemap.xml");
+const sitemapPath = path.join(process.cwd(), 'dist', 'sitemap.xml');
 
 app.use(cors({ origin: env.CLIENT_URL }));
 app.use(express.json({ limit: '10mb' }));
 
-app.get("/sitemap.xml", async (_req, res, next) => {
+app.get('/sitemap.xml', async (_req, res, next) => {
   try {
     const useBuiltFile =
-      process.env.NODE_ENV === "production" && fs.existsSync(sitemapPath);
+      process.env.NODE_ENV === 'production' && fs.existsSync(sitemapPath);
     if (useBuiltFile) {
-      res.setHeader("Content-Type", "application/xml; charset=utf-8");
-      res.setHeader("Cache-Control", "public, max-age=3600");
+      res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
       res.sendFile(path.resolve(sitemapPath));
       return;
     }
-    await sendSitemapXml(res, env.PUBLIC_SITE_URL);
+    await sendSitemapXml(res, env.CLIENT_URL);
   } catch (err) {
     next(err);
   }
