@@ -1,0 +1,23 @@
+# ----------------------------------------------------------------------
+# Timeless Electronix - Production Configuration
+# ----------------------------------------------------------------------
+
+RewriteEngine On
+RewriteBase /
+
+# 1. ניתוב Sitemap לשרת ה-Node
+# מסביר לשרת שכל בקשה ל-sitemap.xml צריכה להימשך מפורט 3001
+RewriteRule ^sitemap\.xml$ http://127.0.0.1:3001/sitemap.xml [P,L]
+
+# 2. ניתוב API (פרוקסי פנימי)
+# כל בקשה שמתחילה ב-api תועבר לשרת ה-Node בפורט 3001
+# הדגל [P] הוא הקריטי כאן - הוא אומר "פרוקסי" ולא "רידירקט"
+RewriteCond %{REQUEST_URI} ^/api [NC]
+RewriteRule ^(.*)$ http://127.0.0.1:3001/$1 [P,L]
+
+# 3. תמיכה ב-React Router (מניעת 404 ברענון דף)
+# אם הבקשה היא לא לקובץ קיים (כמו תמונה או CSS) ולא לתיקייה קיימת
+# השרת יגיש את index.html וה-React Router ידע איזה עמוד להציג
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.html [L]
