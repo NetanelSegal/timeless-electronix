@@ -1,0 +1,16 @@
+RewriteEngine On
+RewriteBase /
+
+# 1. הפרוקסי ל-API (במקום ה-Vite Proxy)
+# זה לוקח את domain.com/api/products ושולח ל-localhost:3001/api/products
+RewriteCond %{REQUEST_URI} ^/api [NC]
+RewriteRule ^(.*)$ http://127.0.0.1:3001/$1 [P,L]
+
+# 2. פרוקסי ל-Sitemap
+RewriteCond %{REQUEST_URI} ^/sitemap.xml [NC]
+RewriteRule ^(.*)$ http://127.0.0.1:3001/$1 [P,L]
+
+# 3. תמיכה ב-React Router (Fallback)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.html [L]
