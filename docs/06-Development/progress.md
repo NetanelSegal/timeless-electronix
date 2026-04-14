@@ -1,5 +1,21 @@
 # Progress Log
 
+## 2026-04-14
+
+### Same-origin API + sitemap routing rewrite
+
+Updated the frontend and deployment routing setup to use same-origin API access and preserve sitemap delivery without breaking SPA routing:
+
+- Added Vite dev proxy entries for `/api` and `/sitemap.xml` in `client/vite.config.ts` (targeting `http://localhost:3001`)
+- Changed frontend API resolution to default to `/api` when `VITE_API_URL` is unset in both `client/src/lib/api.ts` and `client/src/lib/adminApi.ts`
+- Updated environment defaults to same-origin (`VITE_API_URL=/api`) in `client/.env` and `.env.example`
+- Added `client/public/.htaccess` with Cloudways/Apache-friendly rewrite order:
+  - pass through `/api/*`
+  - pass through `/sitemap.xml`
+  - fallback all other non-file routes to `/index.html`
+- Updated `client/public/robots.txt` sitemap URL to same-origin format
+- Ran client type-check (`npm run lint --prefix client`) successfully
+
 ## 2026-04-10
 
 ### Full-stack clone implementation

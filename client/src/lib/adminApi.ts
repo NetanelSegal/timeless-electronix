@@ -1,9 +1,6 @@
 import { createApiClient } from "./apiClient";
 
-const apiUrl = import.meta.env.VITE_API_URL;
-if (!apiUrl) {
-  throw new Error("VITE_API_URL is not set");
-}
+const apiUrl = (import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "");
 
 /** Base URL for admin routes, e.g. `http://localhost:3001/api/admin` */
 export const adminApiBase = `${apiUrl.replace(/\/$/, "")}/admin`;

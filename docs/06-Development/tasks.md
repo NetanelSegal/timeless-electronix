@@ -18,6 +18,7 @@
 - [x] **Cursor rules**: Workflow, stack, component patterns, server patterns
 - [x] **Testing**: 19 server API tests (Vitest + Supertest), all passing
 - [x] **Documentation**: Frameworks, Architecture, Development, Tests docs updated
+- [x] **Routing rewrite**: same-origin `/api` client base, Vite proxy for `/api` and `/sitemap.xml`, and Cloudways-ready Apache rewrite order via `client/public/.htaccess`
 
 ## Backlog / Future
 
