@@ -1,0 +1,113 @@
+:root {
+    /* Architectural Workbench Foundations */
+    --ds-bg: #0a0a0a;
+    --ds-surface: #121212;
+    --ds-border: rgba(255, 255, 255, 0.1);
+    --ds-text: #f5f5f5;
+    --ds-text-muted: #888888;
+    --ds-primary: #ff3e00;
+    
+    --ds-font-heading: 'Clash Display', sans-serif;
+    --ds-font-body: 'JetBrains Mono', monospace;
+    --ds-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body {
+    margin: 0;
+    font-family: var(--ds-font-body);
+    background-color: var(--ds-bg);
+    background-image: 
+        radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+        radial-gradient(at 50% 0%, hsla(225,39%,30%,0.1) 0, transparent 50%);
+    color: var(--ds-text);
+    min-height: 100vh;
+}
+
+.ds-layout {
+    display: flex;
+}
+
+.ds-sidebar {
+    width: 280px;
+    background: var(--ds-surface);
+    border-right: 1px solid var(--ds-border);
+    padding: 3rem 1.5rem;
+    position: fixed;
+    height: 100vh;
+    box-sizing: border-box;
+    backdrop-filter: blur(20px);
+}
+
+.ds-title {
+    font-family: var(--ds-font-heading);
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 3rem;
+    letter-spacing: -0.02em;
+    color: var(--ds-primary);
+}
+
+.ds-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.ds-nav-link {
+    text-decoration: none;
+    color: var(--ds-text-muted);
+    padding: 0.75rem 1rem;
+    border-radius: 4px;
+    transition: all 0.4s var(--ds-ease);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.ds-nav-link:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--ds-text);
+    padding-left: 1.5rem;
+}
+
+.ds-main {
+    flex: 1;
+    margin-left: 280px;
+    padding: 5rem;
+    max-width: 1200px;
+}
+
+.ds-section {
+    margin-bottom: 6rem;
+    opacity: 0;
+    animation: reveal 1s var(--ds-ease) forwards;
+}
+
+.ds-section h2 {
+    font-family: var(--ds-font-heading);
+    font-size: 3rem;
+    margin-bottom: 3rem;
+    letter-spacing: -0.04em;
+    border-bottom: 1px solid var(--ds-border);
+    padding-bottom: 1rem;
+}
+
+@keyframes reveal {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+}
+::-webkit-scrollbar-track {
+    background: var(--ds-bg);
+}
+::-webkit-scrollbar-thumb {
+    background: var(--ds-border);
+    border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--ds-primary);
+}
