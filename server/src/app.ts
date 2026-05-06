@@ -25,8 +25,10 @@ app.get('/sitemap.xml', async (_req, res, next) => {
       res.setHeader('Content-Type', 'application/xml; charset=utf-8');
       res.setHeader('Cache-Control', 'public, max-age=3600');
       res.sendFile(path.resolve(sitemapPath));
+      console.log('sitemap.xml exists:', fs.existsSync(sitemapPath));
       return;
     }
+    console.log('sitemap.xml does not exist, sending from database');
     await sendSitemapXml(res, env.CLIENT_URL);
   } catch (err) {
     next(err);
