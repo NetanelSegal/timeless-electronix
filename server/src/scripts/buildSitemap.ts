@@ -3,8 +3,18 @@ import path from 'node:path';
 import mongoose from 'mongoose';
 import { env } from '../config/env.js';
 import { buildSitemapXmlString } from '../utils/sitemap.js';
+import { fileURLToPath } from 'node:url';
 
-const outPath = path.resolve(process.cwd(), 'dist/sitemap.xml');
+const dirname = path.dirname(fileURLToPath(import.meta.url));
+const outPath = path.resolve(
+  dirname,
+  '..',
+  '..',
+  '..',
+  'client',
+  'dist',
+  'sitemap.xml',
+);
 
 async function main() {
   console.log('buildSitemap: connecting to MongoDB...');
