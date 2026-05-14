@@ -7,6 +7,12 @@ export interface IProduct extends Document {
   ourReference: string;
   manufacturer: string;
   dateCode: string;
+  /** URL segment for public catalog detail; unique. */
+  seoSlug: string;
+  /** Short copy for meta description / previews. */
+  productSummary: string;
+  /** Key/value specs (e.g. Type, Capacitance); stored as object in MongoDB. */
+  technicalSpecs?: Record<string, unknown>;
   /** Canonical list in API; legacy rows may only have `imageUrl`. */
   imageUrls: string[];
   /** @deprecated Legacy single image; merged into `imageUrls` on read. */
@@ -24,6 +30,9 @@ const productSchema = new Schema<IProduct>(
     ourReference: { type: String, default: "" },
     manufacturer: { type: String, default: "", index: true },
     dateCode: { type: String, default: "" },
+    seoSlug: { type: String, required: true, unique: true, index: true },
+    productSummary: { type: String, default: "" },
+    technicalSpecs: { type: Schema.Types.Mixed },
     imageUrls: { type: [String], default: [] },
     imageUrl: { type: String },
     isSample: { type: Boolean, default: false },

@@ -29,10 +29,17 @@ export async function buildSitemapXmlString(
     lines.push(`  <url>\n    <loc>${escapeXml(loc)}</loc>\n  </url>`);
   }
 
-  const cursor = Product.find({}, { _id: 1, updatedAt: 1 }).lean().cursor();
+  const cursor = Product.find(
+    { seoSlug: { $nin: [null, ""] } },
+    { seoSlug: 1, updatedAt: 1 },
+  )
+    .lean()
+    .cursor();
+
   for await (const doc of cursor) {
-    const id = String(doc._id);
-    const loc = `${base}/catalog/${id}`;
+    const slug = String(doc.seoSlug ?? "").trim();
+    if (!slug) continue;
+    const loc = `${base}/catalog/${slug}`;
     const lastmod =
       doc.updatedAt instanceof Date
         ? doc.updatedAt.toISOString().slice(0, 10)

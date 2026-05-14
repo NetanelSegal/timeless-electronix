@@ -24,6 +24,7 @@ const ADMIN_PAGE_SIZE = 50;
 const ADMIN_PRODUCT_SORT_FIELDS = [
   "updatedAt",
   "partNumber",
+  "seoSlug",
   "manufacturer",
   "quantity",
   "ourReference",
@@ -32,6 +33,7 @@ const ADMIN_PRODUCT_SORT_FIELDS = [
 const ADMIN_PRODUCT_FIELD_ORDER: Record<string, "asc" | "desc"> = {
   updatedAt: "desc",
   partNumber: "asc",
+  seoSlug: "asc",
   manufacturer: "asc",
   quantity: "desc",
   ourReference: "asc",
@@ -274,7 +276,7 @@ export default function AdminProducts() {
             type="search"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search part number, manufacturer, reference, description…"
+            placeholder="Search part number, manufacturer, slug, summary, reference, description…"
             className="w-full pl-9 pr-3 py-2 bg-bg-card border border-border rounded-lg text-sm text-white focus:outline-none focus:border-green-accent"
             aria-label="Search products"
           />
@@ -324,6 +326,13 @@ export default function AdminProducts() {
                     onSort={setSortColumn}
                   />
                   <SortableTh
+                    field="seoSlug"
+                    label="SEO slug"
+                    sortField={sortField}
+                    sortOrder={sortOrder}
+                    onSort={setSortColumn}
+                  />
+                  <SortableTh
                     field="manufacturer"
                     label="Manufacturer"
                     sortField={sortField}
@@ -363,6 +372,9 @@ export default function AdminProducts() {
                 {data?.products.map((p) => (
                   <tr key={p._id} className="border-b border-border/50">
                     <td className="py-3 pr-4 font-medium">{p.partNumber}</td>
+                    <td className="py-3 pr-4 text-text-secondary max-w-[10rem] truncate" title={p.seoSlug}>
+                      {p.seoSlug}
+                    </td>
                     <td className="py-3 pr-4 text-text-secondary">
                       {p.manufacturer}
                     </td>
@@ -490,6 +502,7 @@ export default function AdminProducts() {
       {/* Product Form Modal */}
       {showForm && (
         <ProductFormModal
+          key={editProduct?._id ?? "new"}
           product={editProduct}
           onSave={handleSave}
           onClose={() => {
@@ -787,23 +800,50 @@ function ProductFormModal({
   onSave: (data: Partial<Product>) => void;
   onClose: () => void;
 }) {
+  const specsInitial =
+    product?.technicalSpecs && typeof product.technicalSpecs === "object"
+      ? JSON.stringify(product.technicalSpecs, null, 2)
+      : "";
+
   const [form, setForm] = useState({
     partNumber: product?.partNumber || "",
     manufacturer: product?.manufacturer || "",
     description: product?.description || "",
-    quantity: product?.quantity || 0,
+    quantity: product?.quantity ?? 0,
     ourReference: product?.ourReference || "",
     dateCode: product?.dateCode || "",
+    seoSlug: product?.seoSlug || "",
+    productSummary: product?.productSummary || "",
+    technicalSpecsJson: specsInitial,
   });
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    onSave(form);
+    let technicalSpecs: Record<string, string | number | boolean> = {};
+    const raw = form.technicalSpecsJson.trim();
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as unknown;
+        if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+          window.alert("Technical specs must be a JSON object, e.g. {\"Voltage\":\"50V\"}");
+          return;
+        }
+        technicalSpecs = parsed as Record<string, string | number | boolean>;
+      } catch {
+        window.alert("Technical specs must be valid JSON.");
+        return;
+      }
+    }
+    const { technicalSpecsJson: _j, ...rest } = form;
+    onSave({
+      ...rest,
+      technicalSpecs,
+    });
   };
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-bg-secondary border border-border rounded-xl w-full max-w-lg p-6">
+      <div className="bg-bg-secondary border border-border rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-bold">
             {product?._id ? "Edit Product" : "Add Product"}
@@ -827,6 +867,21 @@ function ProductFormModal({
                 value={form.partNumber}
                 onChange={(e) =>
                   setForm({ ...form, partNumber: e.target.value })
+                }
+                className="w-full mt-1 bg-bg-card border border-border rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-green-accent"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-text-secondary">
+                SEO slug * <span className="text-text-secondary/80">(a-z 0-9 -)</span>
+              </label>
+              <input
+                required
+                pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                title="Lowercase letters, digits, and hyphens only"
+                value={form.seoSlug}
+                onChange={(e) =>
+                  setForm({ ...form, seoSlug: e.target.value.toLowerCase() })
                 }
                 className="w-full mt-1 bg-bg-card border border-border rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-green-accent"
               />
@@ -879,14 +934,42 @@ function ProductFormModal({
             </div>
           </div>
           <div>
-            <label className="text-xs text-text-secondary">Description</label>
+            <label className="text-xs text-text-secondary">
+              Product summary (meta description)
+            </label>
             <textarea
               rows={2}
+              value={form.productSummary}
+              onChange={(e) =>
+                setForm({ ...form, productSummary: e.target.value })
+              }
+              className="w-full mt-1 bg-bg-card border border-border rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-green-accent"
+              placeholder="Short summary for search snippets"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-text-secondary">Description</label>
+            <textarea
+              rows={4}
               value={form.description}
               onChange={(e) =>
                 setForm({ ...form, description: e.target.value })
               }
               className="w-full mt-1 bg-bg-card border border-border rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-green-accent"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-text-secondary">
+              Technical specs (JSON object)
+            </label>
+            <textarea
+              rows={5}
+              value={form.technicalSpecsJson}
+              onChange={(e) =>
+                setForm({ ...form, technicalSpecsJson: e.target.value })
+              }
+              className="w-full mt-1 font-mono text-xs bg-bg-card border border-border rounded px-3 py-2 text-white focus:outline-none focus:border-green-accent"
+              placeholder='{"Type":"MLCC","Voltage":"50V"}'
             />
           </div>
           <div className="flex justify-end gap-3 pt-2">

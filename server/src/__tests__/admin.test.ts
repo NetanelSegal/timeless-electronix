@@ -32,7 +32,12 @@ describe("Admin API", () => {
   describe("Stats", () => {
     it("GET /api/admin/stats returns counts", async () => {
       const token = await getAdminToken();
-      await Product.create({ partNumber: "TEST1", manufacturer: "X", quantity: 10 });
+      await Product.create({
+        partNumber: "TEST1",
+        manufacturer: "X",
+        quantity: 10,
+        seoSlug: "test1-stats-product",
+      });
       await ContactMessage.create({ fullName: "A", email: "a@a.com", message: "Hi" });
       await QuoteRequest.create({
         items: [{ partNumber: "P1", manufacturer: "M", quantity: 1, ourReference: "" }],
@@ -58,7 +63,12 @@ describe("Admin API", () => {
       const createRes = await request(app)
         .post("/api/admin/products")
         .set("Authorization", `Bearer ${token}`)
-        .send({ partNumber: "NEW-PART", manufacturer: "TEST", quantity: 500 });
+        .send({
+          partNumber: "NEW-PART",
+          manufacturer: "TEST",
+          quantity: 500,
+          seoSlug: "new-part-admin-crud",
+        });
       expect(createRes.status).toBe(201);
       const id = createRes.body._id;
 
@@ -82,7 +92,12 @@ describe("Admin API", () => {
       const createRes = await request(app)
         .post("/api/admin/products")
         .set("Authorization", `Bearer ${token}`)
-        .send({ partNumber: "IMG-CRUD", manufacturer: "X", quantity: 1 });
+        .send({
+          partNumber: "IMG-CRUD",
+          manufacturer: "X",
+          quantity: 1,
+          seoSlug: "img-crud-admin-test",
+        });
       expect(createRes.status).toBe(201);
       expect(createRes.body.imageUrls).toEqual([]);
       expect(createRes.body.imageUrl).toBeUndefined();

@@ -30,6 +30,32 @@ import {
   type ProductCsvRow,
 } from '../utils/productCsvImport.js';
 
+const SEO_SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+const technicalSpecsField = z
+  .unknown()
+  .optional()
+  .transform((v): Record<string, unknown> | undefined => {
+    if (v === undefined || v === null) return undefined;
+    if (typeof v === 'string') {
+      const t = v.trim();
+      if (!t) return undefined;
+      try {
+        const p = JSON.parse(t) as unknown;
+        if (typeof p === 'object' && p !== null && !Array.isArray(p)) {
+          return p as Record<string, unknown>;
+        }
+      } catch {
+        return undefined;
+      }
+      return undefined;
+    }
+    if (typeof v === 'object' && !Array.isArray(v)) {
+      return v as Record<string, unknown>;
+    }
+    return undefined;
+  });
+
 const productInputSchema = z.object({
   partNumber: z.string().min(1),
   manufacturer: z.string().default(''),
@@ -37,6 +63,12 @@ const productInputSchema = z.object({
   quantity: z.number().int().min(0).default(0),
   ourReference: z.string().default(''),
   dateCode: z.string().default(''),
+  seoSlug: z
+    .string()
+    .min(1)
+    .regex(SEO_SLUG_REGEX, 'seoSlug must be lowercase letters, digits, and hyphens'),
+  productSummary: z.string().default(''),
+  technicalSpecs: technicalSpecsField,
 });
 
 const adminQuoteLineItemSchema = z.object({
@@ -95,6 +127,8 @@ router.get('/products', async (req, res, next) => {
       'manufacturer',
       'ourReference',
       'description',
+      'seoSlug',
+      'productSummary',
     ]);
 
     const sortSpec = buildMongoSortSpec(query, {
@@ -104,6 +138,7 @@ router.get('/products', async (req, res, next) => {
         'manufacturer',
         'quantity',
         'ourReference',
+        'seoSlug',
       ],
       fallback: { field: 'updatedAt', order: 'desc' },
       fieldDefaultOrder: {
@@ -112,6 +147,7 @@ router.get('/products', async (req, res, next) => {
         manufacturer: 'asc',
         quantity: 'desc',
         ourReference: 'asc',
+        seoSlug: 'asc',
       },
     });
 
@@ -140,6 +176,11 @@ router.get('/products', async (req, res, next) => {
 router.post('/products', async (req, res, next) => {
   try {
     const data = productInputSchema.parse(req.body);
+    const slugTaken = await Product.findOne({ seoSlug: data.seoSlug }).lean();
+    if (slugTaken) {
+      res.status(400).json({ error: 'This SEO slug is already in use' });
+      return;
+    }
     const product = await Product.create(data);
     res
       .status(201)
@@ -156,6 +197,16 @@ router.post('/products', async (req, res, next) => {
 router.put('/products/:id', async (req, res, next) => {
   try {
     const data = productInputSchema.partial().parse(req.body);
+    if (data.seoSlug !== undefined) {
+      const slugTaken = await Product.findOne({
+        seoSlug: data.seoSlug,
+        _id: { $ne: req.params.id },
+      }).lean();
+      if (slugTaken) {
+        res.status(400).json({ error: 'This SEO slug is already in use' });
+        return;
+      }
+    }
     const product = await Product.findByIdAndUpdate(req.params.id, data, {
       new: true,
     });
@@ -193,7 +244,8 @@ router.delete('/products/:id', async (req, res, next) => {
   }
 });
 
-// --- CSV Import (columns match Mongo Product: partNumber, _id, etc.) ---
+// --- CSV Import (columns: partNumber, seoSlug, description, quantity, ourReference,
+// manufacturer, dateCode, productSummary, technicalSpecs JSON, imageUrls, _id, etc.) ---
 const IMPORT_BATCH = 500;
 
 router.post(
@@ -224,11 +276,18 @@ router.post(
 
       const docs = rows
         .map((row) => productDocFromCsvRow(row))
-        .filter((doc) => String(doc.partNumber ?? '').trim().length > 0);
+        .filter(
+          (doc) =>
+            String(doc.partNumber ?? '').trim().length > 0 &&
+            String(doc.seoSlug ?? '').trim().length > 0,
+        );
 
       if (docs.length === 0) {
         fs.unlinkSync(req.file.path);
-        res.status(400).json({ error: 'No valid rows (missing partNumber)' });
+        res.status(400).json({
+          error:
+            'No valid rows (each row needs partNumber and seoSlug for import)',
+        });
         return;
       }
 

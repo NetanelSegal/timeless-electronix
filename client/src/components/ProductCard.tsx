@@ -53,7 +53,7 @@ export default function ProductCard({ product }: Props) {
       <div className="flex items-start justify-between gap-2">
         <h3 className="font-bold text-sm break-all leading-tight">
           <Link
-            to={`/catalog/${product._id}`}
+            to={`/catalog/${encodeURIComponent(product.seoSlug)}`}
             className="text-gray-900 hover:text-green-brand transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-green-brand rounded"
           >
             {product.partNumber}
@@ -87,7 +87,7 @@ export default function ProductCard({ product }: Props) {
       </div>
 
       <Link
-        to={`/catalog/${product._id}`}
+        to={`/catalog/${encodeURIComponent(product.seoSlug)}`}
         className="text-center text-xs text-green-accent font-medium hover:underline"
       >
         View details
