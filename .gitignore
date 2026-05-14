@@ -8,3 +8,9 @@ build/
 Thumbs.db
 coverage/
 .turbo/
+
+# Local product exports / DB dumps (do not commit)
+server/products_export*.csv
+server/products_export*.xlsx
+server/products_export*.xlsx.bak
+server/timeless-electronix.products.json

@@ -1,57 +1,12 @@
-import { ArrowUp, ArrowDown } from "lucide-react";
+import {
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import { useMemo } from "react";
 import type { Product } from "../../lib/types";
-import AdminProductTableRow from "./AdminProductTableRow";
-
-function SortableTh({
-  field,
-  label,
-  sortField,
-  sortOrder,
-  onSort,
-}: {
-  field: string;
-  label: string;
-  sortField: string;
-  sortOrder: "asc" | "desc";
-  onSort: (field: string) => void;
-}) {
-  const active = sortField === field;
-  const ariaSort = active
-    ? sortOrder === "asc"
-      ? "ascending"
-      : "descending"
-    : "none";
-  return (
-    <th
-      scope="col"
-      aria-sort={ariaSort}
-      className="sticky top-0 z-10 bg-bg-secondary pb-3 pr-4 font-medium align-bottom border-b border-border"
-    >
-      <button
-        type="button"
-        onClick={() => onSort(field)}
-        className="inline-flex items-center gap-1 max-w-full text-left text-text-secondary hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-green-accent rounded"
-      >
-        <span>{label}</span>
-        {active ? (
-          sortOrder === "asc" ? (
-            <ArrowUp
-              size={14}
-              className="shrink-0 text-green-accent"
-              aria-hidden
-            />
-          ) : (
-            <ArrowDown
-              size={14}
-              className="shrink-0 text-green-accent"
-              aria-hidden
-            />
-          )
-        ) : null}
-      </button>
-    </th>
-  );
-}
+import { useAdminProductsTableColumnSizing } from "../../hooks/admin/useAdminProductsTableColumnSizing";
+import { createAdminProductColumns } from "./adminProductTableColumns";
 
 type Props = {
   products: Product[];
@@ -67,6 +22,20 @@ type Props = {
   onImageUpload: (productId: string, file: File) => void;
 };
 
+function headerAriaSort(
+  columnId: string,
+  meta: unknown,
+  sortField: string,
+  sortOrder: "asc" | "desc",
+): "ascending" | "descending" | "none" {
+  const sortKey =
+    meta && typeof meta === "object" && "sortKey" in meta
+      ? String((meta as { sortKey?: string }).sortKey)
+      : columnId;
+  if (sortField !== sortKey) return "none";
+  return sortOrder === "asc" ? "ascending" : "descending";
+}
+
 export default function AdminProductsTable({
   products,
   sortField,
@@ -80,117 +49,145 @@ export default function AdminProductsTable({
   onManageImages,
   onImageUpload,
 }: Props) {
+  const { columnSizing, onColumnSizingChange } =
+    useAdminProductsTableColumnSizing();
+
+  const columns = useMemo(
+    () =>
+      createAdminProductColumns({
+        sortField,
+        sortOrder,
+        onSortColumn,
+        uploadingProductId,
+        onEdit,
+        onDelete,
+        onManageImages,
+        onImageUpload,
+      }),
+    [
+      sortField,
+      sortOrder,
+      onSortColumn,
+      uploadingProductId,
+      onEdit,
+      onDelete,
+      onManageImages,
+      onImageUpload,
+    ],
+  );
+
+  const table = useReactTable({
+    data: products,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getRowId: (row) => row._id,
+    columnResizeMode: "onChange",
+    enableColumnResizing: true,
+    defaultColumn: {
+      minSize: 72,
+      size: 140,
+      maxSize: 640,
+    },
+    state: {
+      columnVisibility: {
+        productSummary: showSummary,
+        description: showDescription,
+      },
+      columnSizing,
+    },
+    onColumnSizingChange,
+  });
+
   return (
     <div className="max-h-[min(70vh,calc(100vh-12rem))] overflow-auto rounded-lg border border-border">
-      <table className="w-full text-sm min-w-[72rem]">
+      <table
+        className="w-full border-separate border-spacing-0 text-sm"
+        style={{
+          width: table.getTotalSize(),
+          minWidth: "100%",
+        }}
+      >
         <caption className="sr-only">
           Product inventory. Column headers sort the table.
         </caption>
         <thead>
-          <tr className="text-left text-text-secondary">
-            <SortableTh
-              field="partNumber"
-              label="Part number"
-              sortField={sortField}
-              sortOrder={sortOrder}
-              onSort={onSortColumn}
-            />
-            <SortableTh
-              field="seoSlug"
-              label="SEO slug"
-              sortField={sortField}
-              sortOrder={sortOrder}
-              onSort={onSortColumn}
-            />
-            {showSummary ? (
-              <th
-                scope="col"
-                className="sticky top-0 z-10 bg-bg-secondary pb-3 pr-4 font-medium align-bottom border-b border-border max-w-[14rem]"
-              >
-                Summary
-              </th>
-            ) : null}
-            {showDescription ? (
-              <th
-                scope="col"
-                className="sticky top-0 z-10 bg-bg-secondary pb-3 pr-4 font-medium align-bottom border-b border-border max-w-[16rem]"
-              >
-                Description
-              </th>
-            ) : null}
-            <th
-              scope="col"
-              className="sticky top-0 z-10 bg-bg-secondary pb-3 pr-4 font-medium align-bottom border-b border-border"
-            >
-              Specs
-            </th>
-            <th
-              scope="col"
-              className="sticky top-0 z-10 bg-bg-secondary pb-3 pr-4 font-medium align-bottom border-b border-border"
-            >
-              DC
-            </th>
-            <th
-              scope="col"
-              className="sticky top-0 z-10 bg-bg-secondary pb-3 pr-4 font-medium align-bottom border-b border-border"
-            >
-              Sample
-            </th>
-            <SortableTh
-              field="manufacturer"
-              label="Mfr"
-              sortField={sortField}
-              sortOrder={sortOrder}
-              onSort={onSortColumn}
-            />
-            <SortableTh
-              field="quantity"
-              label="Qty"
-              sortField={sortField}
-              sortOrder={sortOrder}
-              onSort={onSortColumn}
-            />
-            <SortableTh
-              field="ourReference"
-              label="Ref"
-              sortField={sortField}
-              sortOrder={sortOrder}
-              onSort={onSortColumn}
-            />
-            <SortableTh
-              field="updatedAt"
-              label="Updated"
-              sortField={sortField}
-              sortOrder={sortOrder}
-              onSort={onSortColumn}
-            />
-            <th
-              scope="col"
-              className="sticky top-0 z-10 bg-bg-secondary pb-3 pr-4 font-medium align-bottom border-b border-border"
-            >
-              Images
-            </th>
-            <th
-              scope="col"
-              className="sticky top-0 z-10 bg-bg-secondary pb-3 font-medium align-bottom border-b border-border"
-            >
-              Actions
-            </th>
-          </tr>
+          {table.getHeaderGroups().map((headerGroup) => (
+            <tr key={headerGroup.id} className="text-left text-text-secondary">
+              {headerGroup.headers.map((header) => {
+                const colMeta = header.column.columnDef.meta;
+                const ariaSort = headerAriaSort(
+                  header.column.id,
+                  colMeta,
+                  sortField,
+                  sortOrder,
+                );
+                return (
+                  <th
+                    key={header.id}
+                    colSpan={header.colSpan}
+                    scope="col"
+                    aria-sort={ariaSort}
+                    style={{
+                      width: header.getSize(),
+                    }}
+                    className="sticky top-0 z-20 border-b border-border bg-bg-secondary p-0 align-bottom font-medium"
+                  >
+                    <div className="flex min-h-11 items-stretch">
+                      <div
+                        className={`flex min-w-0 flex-1 items-end pt-2 pb-3 pl-3 ${
+                          header.column.getCanResize() ? "pr-1" : "pr-3"
+                        }`}
+                      >
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext(),
+                            )}
+                      </div>
+                      {header.column.getCanResize() ? (
+                        <div
+                          className="relative w-3 shrink-0 touch-none self-stretch border-l border-border"
+                          aria-hidden
+                        >
+                          <button
+                            type="button"
+                            aria-label={`Resize ${header.column.id} column`}
+                            onMouseDown={header.getResizeHandler()}
+                            onTouchStart={header.getResizeHandler()}
+                            className={`absolute inset-0 cursor-col-resize select-none hover:bg-green-accent/15 ${
+                              header.column.getIsResizing()
+                                ? "bg-green-accent/25"
+                                : ""
+                            }`}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  </th>
+                );
+              })}
+            </tr>
+          ))}
         </thead>
         <tbody>
-          {products.map((p) => (
-            <AdminProductTableRow
-              key={p._id}
-              product={p}
-              showSummary={showSummary}
-              showDescription={showDescription}
-              uploading={uploadingProductId === p._id}
-              onEdit={() => onEdit(p)}
-              onDelete={() => onDelete(p._id)}
-              onManageImages={() => onManageImages(p)}
-              onPickImage={(file) => onImageUpload(p._id, file)}
-            />
+          {table.getRowModel().rows.map((row) => (
+            <tr
+              key={row.id}
+              className="border-b border-border/50 transition-colors hover:bg-bg-card/50"
+            >
+              {row.getVisibleCells().map((cell) => (
+                <td
+                  key={cell.id}
+                  style={{ width: cell.column.getSize() }}
+                  className="min-w-0 px-3 py-3 align-top"
+                >
+                  <div className="min-w-0">
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </div>
+                </td>
+              ))}
+            </tr>
           ))}
         </tbody>
       </table>

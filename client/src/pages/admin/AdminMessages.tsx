@@ -7,9 +7,11 @@ import {
   Search,
 } from "lucide-react";
 import { adminApi } from "../../lib/adminApi";
+import { effectiveListSort, parsePageFromSearchParams } from "../../lib/listUrlQuery";
 import type { ContactMessage } from "../../lib/types";
 import Pagination from "../../components/Pagination";
 import { useAsyncQuery } from "../../hooks/useAsyncQuery";
+import { useDebouncedSearchToUrl } from "../../hooks/useDebouncedSearchToUrl";
 
 interface MessagesResponse {
   messages: ContactMessage[];
@@ -37,31 +39,17 @@ const MESSAGE_SORT_OPTIONS: { value: string; label: string }[] = [
   { value: "isRead:desc", label: "Read first" },
 ];
 
-function effectiveMessageSort(searchParams: URLSearchParams): {
-  field: string;
-  order: "asc" | "desc";
-  presetValue: string;
-} {
-  const raw = searchParams.get("sort")?.trim();
-  const field =
-    raw && (MESSAGE_SORT_FIELDS as readonly string[]).includes(raw)
-      ? raw
-      : "createdAt";
-  const o = searchParams.get("order")?.toLowerCase();
-  const order: "asc" | "desc" =
-    o === "asc" || o === "desc" ? o : MESSAGE_FIELD_ORDER[field] ?? "desc";
-  return { field, order, presetValue: `${field}:${order}` };
-}
-
 export default function AdminMessages() {
   const [searchParams, setSearchParams] = useSearchParams();
   const searchFromUrl = searchParams.get("search") || "";
   const readFilter = searchParams.get("isRead") || "";
-  const pageParam = parseInt(searchParams.get("page") || "1", 10);
-  const page =
-    Number.isFinite(pageParam) && pageParam >= 1 ? pageParam : 1;
+  const page = parsePageFromSearchParams(searchParams);
   const { field: sortField, order: sortOrder, presetValue } =
-    effectiveMessageSort(searchParams);
+    effectiveListSort(searchParams, {
+      allowedFields: MESSAGE_SORT_FIELDS,
+      defaultField: "createdAt",
+      fieldDefaultOrder: MESSAGE_FIELD_ORDER,
+    });
 
   const [searchInput, setSearchInput] = useState(searchFromUrl);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -71,18 +59,12 @@ export default function AdminMessages() {
     setSearchInput(searchFromUrl);
   }, [searchFromUrl]);
 
-  useEffect(() => {
-    const t = setTimeout(() => {
-      const q = searchInput.trim();
-      if (q === searchFromUrl) return;
-      const next = new URLSearchParams(searchParams);
-      if (q) next.set("search", q);
-      else next.delete("search");
-      next.set("page", "1");
-      setSearchParams(next, { replace: true });
-    }, 350);
-    return () => clearTimeout(t);
-  }, [searchInput, searchFromUrl, searchParams, setSearchParams]);
+  useDebouncedSearchToUrl({
+    searchInput,
+    urlSearch: searchFromUrl,
+    searchParams,
+    setSearchParams,
+  });
 
   const setPage = (p: number) => {
     const next = new URLSearchParams(searchParams);

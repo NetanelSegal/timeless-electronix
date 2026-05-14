@@ -366,10 +366,29 @@ router.post(
       }
 
       let imported = 0;
-      for (let i = 0; i < docs.length; i += IMPORT_BATCH) {
-        const batch = docs.slice(i, i + IMPORT_BATCH);
-        const result = await Product.insertMany(batch);
-        imported += result.length;
+      for (const doc of docs) {
+        await Product.findOneAndUpdate(
+          { 
+            partNumber: doc.partNumber as string, 
+            manufacturer: doc.manufacturer as string 
+          },
+          { 
+            $set: {
+              description: doc.description,
+              dateCode: doc.dateCode,
+              seoSlug: doc.seoSlug,
+              productSummary: doc.productSummary,
+              technicalSpecs: doc.technicalSpecs,
+              imageUrls: doc.imageUrls,
+              isSample: doc.isSample,
+              updatedAt: new Date(),
+            },
+            $inc: { quantity: (doc.quantity as number) || 0 },
+            $addToSet: { ourReference: doc.ourReference as string }
+          },
+          { upsert: true, new: true }
+        );
+        imported++;
       }
 
       fs.unlinkSync(req.file!.path);

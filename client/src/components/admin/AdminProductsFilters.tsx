@@ -73,10 +73,14 @@ export default function AdminProductsFilters({
       {open ? (
         <div className="px-4 pb-4 pt-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 border-t border-border/60">
           <div>
-            <label className="text-xs text-text-secondary block mb-1">
+            <label
+              htmlFor="admin-products-search-scope"
+              className="text-xs text-text-secondary block mb-1"
+            >
               Search scope
             </label>
             <select
+              id="admin-products-search-scope"
               value={searchField}
               onChange={(e) =>
                 onPatch({

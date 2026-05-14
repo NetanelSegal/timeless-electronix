@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { effectiveListSort, parsePageFromSearchParams } from "../../lib/listUrlQuery";
+import { useDebouncedSearchToUrl } from "../useDebouncedSearchToUrl";
 
 export const ADMIN_PAGE_SIZE = 50;
 
@@ -20,22 +22,6 @@ export const ADMIN_PRODUCT_FIELD_ORDER: Record<string, "asc" | "desc"> = {
   quantity: "desc",
   ourReference: "asc",
 };
-
-export function effectiveAdminProductSort(searchParams: URLSearchParams): {
-  field: string;
-  order: "asc" | "desc";
-} {
-  const raw = searchParams.get("sort")?.trim();
-  const field =
-    raw &&
-    (ADMIN_PRODUCT_SORT_FIELDS as readonly string[]).includes(raw)
-      ? raw
-      : "updatedAt";
-  const o = searchParams.get("order")?.toLowerCase();
-  const order: "asc" | "desc" =
-    o === "asc" || o === "desc" ? o : ADMIN_PRODUCT_FIELD_ORDER[field] ?? "desc";
-  return { field, order };
-}
 
 export type AdminProductsListQuery = {
   search: string;
@@ -65,11 +51,15 @@ export const ADMIN_SEARCH_FIELD_OPTIONS = [
 export function useAdminProductsListState() {
   const [searchParams, setSearchParams] = useSearchParams();
   const searchFromUrl = searchParams.get("search") || "";
-  const pageParam = parseInt(searchParams.get("page") || "1", 10);
-  const page =
-    Number.isFinite(pageParam) && pageParam >= 1 ? pageParam : 1;
-  const { field: sortField, order: sortOrder } =
-    effectiveAdminProductSort(searchParams);
+  const page = parsePageFromSearchParams(searchParams);
+  const { field: sortField, order: sortOrder } = effectiveListSort(
+    searchParams,
+    {
+      allowedFields: ADMIN_PRODUCT_SORT_FIELDS,
+      defaultField: "updatedAt",
+      fieldDefaultOrder: ADMIN_PRODUCT_FIELD_ORDER,
+    },
+  );
 
   const searchField = searchParams.get("searchField")?.trim() || "";
   const manufacturer = searchParams.get("manufacturer")?.trim() || "";
@@ -86,18 +76,12 @@ export function useAdminProductsListState() {
     setSearchInput(searchFromUrl);
   }, [searchFromUrl]);
 
-  useEffect(() => {
-    const t = setTimeout(() => {
-      const q = searchInput.trim();
-      if (q === searchFromUrl) return;
-      const next = new URLSearchParams(searchParams);
-      if (q) next.set("search", q);
-      else next.delete("search");
-      next.set("page", "1");
-      setSearchParams(next, { replace: true });
-    }, 350);
-    return () => clearTimeout(t);
-  }, [searchInput, searchFromUrl, searchParams, setSearchParams]);
+  useDebouncedSearchToUrl({
+    searchInput,
+    urlSearch: searchFromUrl,
+    searchParams,
+    setSearchParams,
+  });
 
   const listQuery = useMemo<AdminProductsListQuery>(
     () => ({

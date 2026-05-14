@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
+import { effectiveListSort, parsePageFromSearchParams } from "../lib/listUrlQuery";
 import type { ProductsResponse } from "../lib/types";
 
 const CATALOG_SORT_FIELDS = [
@@ -28,28 +29,6 @@ export const CATALOG_SORT_OPTIONS: { value: string; label: string }[] = [
   { value: "updatedAt:asc", label: "Oldest updated first" },
 ];
 
-/** Effective sort for API + UI, matching server whitelist and defaults. */
-export function effectiveCatalogSort(searchParams: URLSearchParams): {
-  field: string;
-  order: "asc" | "desc";
-  presetValue: string;
-} {
-  const raw = searchParams.get("sort")?.trim();
-  const field =
-    raw &&
-    (CATALOG_SORT_FIELDS as readonly string[]).includes(raw)
-      ? raw
-      : "quantity";
-  const o = searchParams.get("order")?.toLowerCase();
-  const order: "asc" | "desc" =
-    o === "asc" || o === "desc" ? o : FIELD_DEFAULT_ORDER[field] ?? "desc";
-  return {
-    field,
-    order,
-    presetValue: `${field}:${order}`,
-  };
-}
-
 /**
  * Catalog URL params, manufacturer list, product list, and handlers.
  */
@@ -61,12 +40,14 @@ export function useCatalog() {
 
   const search = searchParams.get("search") || "";
   const manufacturer = searchParams.get("manufacturer") || "";
-  const pageParam = parseInt(searchParams.get("page") || "1", 10);
-  const page =
-    Number.isFinite(pageParam) && pageParam >= 1 ? pageParam : 1;
+  const page = parsePageFromSearchParams(searchParams);
 
   const { field: sortField, order: sortOrder, presetValue } =
-    effectiveCatalogSort(searchParams);
+    effectiveListSort(searchParams, {
+      allowedFields: CATALOG_SORT_FIELDS,
+      defaultField: "quantity",
+      fieldDefaultOrder: FIELD_DEFAULT_ORDER,
+    });
 
   const [searchInput, setSearchInput] = useState(search);
 

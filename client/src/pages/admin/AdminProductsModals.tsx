@@ -6,10 +6,52 @@ import {
   ChevronUp,
   ChevronDown,
   Loader2,
+  Plus,
 } from "lucide-react";
 import { adminApi } from "../../lib/adminApi";
 import type { Product } from "../../lib/types";
 import CloudinaryImage from "../../components/CloudinaryImage";
+
+type SpecRow = { id: string; key: string; value: string };
+
+function newSpecRow(): SpecRow {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+    key: "",
+    value: "",
+  };
+}
+
+function rowsFromTechnicalSpecs(
+  specs: Product["technicalSpecs"],
+): SpecRow[] {
+  if (!specs || typeof specs !== "object" || Array.isArray(specs)) {
+    return [newSpecRow()];
+  }
+  const entries = Object.entries(specs);
+  if (entries.length === 0) return [newSpecRow()];
+  return entries.map(([k, v]) => ({
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 11)}-${k}`,
+    key: k,
+    value: typeof v === "boolean" ? (v ? "true" : "false") : String(v),
+  }));
+}
+
+function recordFromSpecRows(
+  rows: SpecRow[],
+): Record<string, string | number | boolean> {
+  const out: Record<string, string | number | boolean> = {};
+  for (const row of rows) {
+    const k = row.key.trim();
+    if (!k) continue;
+    const raw = row.value.trim();
+    if (raw === "true") out[k] = true;
+    else if (raw === "false") out[k] = false;
+    else if (/^-?\d+(\.\d+)?$/.test(raw)) out[k] = Number(raw);
+    else out[k] = raw;
+  }
+  return out;
+}
 
 export function ProductImagesModal({
   product,
@@ -237,11 +279,6 @@ export function ProductFormModal({
   onSave: (data: Partial<Product>) => void;
   onClose: () => void;
 }) {
-  const specsInitial =
-    product?.technicalSpecs && typeof product.technicalSpecs === "object"
-      ? JSON.stringify(product.technicalSpecs, null, 2)
-      : "";
-
   const [form, setForm] = useState({
     partNumber: product?.partNumber || "",
     manufacturer: product?.manufacturer || "",
@@ -251,35 +288,21 @@ export function ProductFormModal({
     dateCode: product?.dateCode || "",
     seoSlug: product?.seoSlug || "",
     productSummary: product?.productSummary || "",
-    technicalSpecsJson: specsInitial,
   });
+
+  const [specRows, setSpecRows] = useState<SpecRow[]>(() =>
+    rowsFromTechnicalSpecs(product?.technicalSpecs),
+  );
+
+  useEffect(() => {
+    setSpecRows(rowsFromTechnicalSpecs(product?.technicalSpecs));
+  }, [product?._id]);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    let technicalSpecs: Record<string, string | number | boolean> = {};
-    const raw = form.technicalSpecsJson.trim();
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw) as unknown;
-        if (
-          typeof parsed !== "object" ||
-          parsed === null ||
-          Array.isArray(parsed)
-        ) {
-          window.alert(
-            'Technical specs must be a JSON object, e.g. {"Voltage":"50V"}',
-          );
-          return;
-        }
-        technicalSpecs = parsed as Record<string, string | number | boolean>;
-      } catch {
-        window.alert("Technical specs must be valid JSON.");
-        return;
-      }
-    }
-    const { technicalSpecsJson: _j, ...rest } = form;
+    const technicalSpecs = recordFromSpecRows(specRows);
     onSave({
-      ...rest,
+      ...form,
       technicalSpecs,
     });
   };
@@ -404,18 +427,74 @@ export function ProductFormModal({
             />
           </div>
           <div>
-            <label className="text-xs text-text-secondary">
-              Technical specs (JSON object)
-            </label>
-            <textarea
-              rows={5}
-              value={form.technicalSpecsJson}
-              onChange={(e) =>
-                setForm({ ...form, technicalSpecsJson: e.target.value })
-              }
-              className="w-full mt-1 font-mono text-xs bg-bg-card border border-border rounded px-3 py-2 text-white focus:outline-none focus:border-green-accent"
-              placeholder='{"Type":"MLCC","Voltage":"50V"}'
-            />
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-xs text-text-secondary">
+                Technical specs
+              </label>
+              <button
+                type="button"
+                onClick={() => setSpecRows((rows) => [...rows, newSpecRow()])}
+                className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs text-text-secondary hover:border-green-accent hover:text-green-accent"
+              >
+                <Plus size={14} aria-hidden />
+                Add pair
+              </button>
+            </div>
+            <div className="mt-2 space-y-2 rounded-lg border border-border bg-bg-card p-3">
+              {specRows.map((row, index) => (
+                <div
+                  key={row.id}
+                  className="flex flex-wrap items-center gap-2 sm:flex-nowrap"
+                >
+                  <input
+                    aria-label={`Spec key ${index + 1}`}
+                    placeholder="Key"
+                    value={row.key}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setSpecRows((rows) =>
+                        rows.map((r) =>
+                          r.id === row.id ? { ...r, key: v } : r,
+                        ),
+                      );
+                    }}
+                    className="min-w-0 flex-1 rounded border border-border bg-bg-secondary px-3 py-2 text-sm text-white focus:border-green-accent focus:outline-none sm:max-w-[40%]"
+                  />
+                  <input
+                    aria-label={`Spec value ${index + 1}`}
+                    placeholder="Value"
+                    value={row.value}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setSpecRows((rows) =>
+                        rows.map((r) =>
+                          r.id === row.id ? { ...r, value: v } : r,
+                        ),
+                      );
+                    }}
+                    className="min-w-0 flex-1 rounded border border-border bg-bg-secondary px-3 py-2 text-sm text-white focus:border-green-accent focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSpecRows((rows) => {
+                        const next = rows.filter((r) => r.id !== row.id);
+                        return next.length > 0 ? next : [newSpecRow()];
+                      })
+                    }
+                    className="shrink-0 rounded p-2 text-text-secondary hover:text-red-400"
+                    aria-label={`Remove spec row ${index + 1}`}
+                  >
+                    <Trash2 size={16} aria-hidden />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <p className="mt-1.5 text-[11px] text-text-secondary/80">
+              Values <code className="text-text-secondary">true</code> /{" "}
+              <code className="text-text-secondary">false</code> become
+              booleans; plain numbers become numbers; otherwise text.
+            </p>
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button
