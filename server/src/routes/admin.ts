@@ -117,19 +117,93 @@ router.get('/stats', async (_req, res, next) => {
   }
 });
 
+const ADMIN_PRODUCT_SEARCH_FIELDS_ALL = [
+  'partNumber',
+  'manufacturer',
+  'ourReference',
+  'description',
+  'seoSlug',
+  'productSummary',
+] as const;
+
+const ADMIN_PRODUCT_SEARCH_FIELD_ALLOWLIST = new Set<string>([
+  ...ADMIN_PRODUCT_SEARCH_FIELDS_ALL,
+]);
+
+function adminProductListFilterFromQuery(
+  query: Record<string, string>,
+): Record<string, unknown> {
+  const search = (query.search || '').trim();
+  const searchFieldRaw = (query.searchField || '').trim();
+  const searchFields =
+    searchFieldRaw && ADMIN_PRODUCT_SEARCH_FIELD_ALLOWLIST.has(searchFieldRaw)
+      ? [searchFieldRaw]
+      : [...ADMIN_PRODUCT_SEARCH_FIELDS_ALL];
+
+  const textFilter = search
+    ? buildSearchFilter(search, [...searchFields])
+    : {};
+
+  const manufacturer = (query.manufacturer || '').trim();
+  const mfgFilter = manufacturer ? { manufacturer } : {};
+
+  const minQtyRaw = parseInt(query.minQty ?? '', 10);
+  const maxQtyRaw = parseInt(query.maxQty ?? '', 10);
+  const qtyParts: Record<string, unknown>[] = [];
+  if (!Number.isNaN(minQtyRaw) && minQtyRaw >= 0) {
+    qtyParts.push({ quantity: { $gte: minQtyRaw } });
+  }
+  if (!Number.isNaN(maxQtyRaw) && maxQtyRaw >= 0) {
+    qtyParts.push({ quantity: { $lte: maxQtyRaw } });
+  }
+  const qtyFilter =
+    qtyParts.length === 0 ? {} : qtyParts.length === 1 ? qtyParts[0]! : { $and: qtyParts };
+
+  const sampleVal = parseQueryBoolean(query.isSample);
+  const sampleFilter =
+    sampleVal === undefined ? {} : { isSample: sampleVal };
+
+  const hasImages = parseQueryBoolean(query.hasImages);
+  const imagesFilter =
+    hasImages === true
+      ? {
+          $or: [
+            { 'imageUrls.0': { $exists: true } },
+            {
+              imageUrl: { $exists: true, $nin: [null, ''] },
+            },
+          ],
+        }
+      : {};
+
+  const missingSlug = parseQueryBoolean(query.missingSlug);
+  const slugFilter =
+    missingSlug === true
+      ? {
+          $or: [
+            { seoSlug: { $exists: false } },
+            { seoSlug: '' },
+            { seoSlug: null },
+          ],
+        }
+      : {};
+
+  return mergeAndFilters(
+    textFilter,
+    mfgFilter,
+    qtyFilter as Record<string, unknown>,
+    sampleFilter,
+    imagesFilter,
+    slugFilter,
+  );
+}
+
 // --- Products CRUD ---
 router.get('/products', async (req, res, next) => {
   try {
     const query = req.query as Record<string, string>;
     const { page, limit } = parsePageLimit(query, { limit: 50, maxLimit: 200 });
-    const filter = buildSearchFilter(query.search || '', [
-      'partNumber',
-      'manufacturer',
-      'ourReference',
-      'description',
-      'seoSlug',
-      'productSummary',
-    ]);
+    const filter = adminProductListFilterFromQuery(query);
 
     const sortSpec = buildMongoSortSpec(query, {
       allowlist: [
