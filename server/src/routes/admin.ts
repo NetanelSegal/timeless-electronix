@@ -29,6 +29,35 @@ import {
   productDocFromCsvRow,
   type ProductCsvRow,
 } from '../utils/productCsvImport.js';
+import { SEO_SLUG_REGEX, isValidSeoSlug } from '../utils/seoSlug.js';
+import {
+  findFirstAvailableSlug,
+  isSeoSlugTaken,
+} from '../services/productSlugService.js';
+
+const technicalSpecsField = z
+  .unknown()
+  .optional()
+  .transform((v): Record<string, unknown> | undefined => {
+    if (v === undefined || v === null) return undefined;
+    if (typeof v === 'string') {
+      const t = v.trim();
+      if (!t) return undefined;
+      try {
+        const p = JSON.parse(t) as unknown;
+        if (typeof p === 'object' && p !== null && !Array.isArray(p)) {
+          return p as Record<string, unknown>;
+        }
+      } catch {
+        return undefined;
+      }
+      return undefined;
+    }
+    if (typeof v === 'object' && !Array.isArray(v)) {
+      return v as Record<string, unknown>;
+    }
+    return undefined;
+  });
 
 const productInputSchema = z.object({
   partNumber: z.string().min(1),
@@ -37,6 +66,12 @@ const productInputSchema = z.object({
   quantity: z.number().int().min(0).default(0),
   ourReference: z.string().default(''),
   dateCode: z.string().default(''),
+  seoSlug: z
+    .string()
+    .min(1)
+    .regex(SEO_SLUG_REGEX, 'seoSlug must be lowercase letters, digits, and hyphens'),
+  productSummary: z.string().default(''),
+  technicalSpecs: technicalSpecsField,
 });
 
 const adminQuoteLineItemSchema = z.object({
@@ -85,17 +120,93 @@ router.get('/stats', async (_req, res, next) => {
   }
 });
 
+const ADMIN_PRODUCT_SEARCH_FIELDS_ALL = [
+  'partNumber',
+  'manufacturer',
+  'ourReference',
+  'description',
+  'seoSlug',
+  'productSummary',
+] as const;
+
+const ADMIN_PRODUCT_SEARCH_FIELD_ALLOWLIST = new Set<string>([
+  ...ADMIN_PRODUCT_SEARCH_FIELDS_ALL,
+]);
+
+function adminProductListFilterFromQuery(
+  query: Record<string, string>,
+): Record<string, unknown> {
+  const search = (query.search || '').trim();
+  const searchFieldRaw = (query.searchField || '').trim();
+  const searchFields =
+    searchFieldRaw && ADMIN_PRODUCT_SEARCH_FIELD_ALLOWLIST.has(searchFieldRaw)
+      ? [searchFieldRaw]
+      : [...ADMIN_PRODUCT_SEARCH_FIELDS_ALL];
+
+  const textFilter = search
+    ? buildSearchFilter(search, [...searchFields])
+    : {};
+
+  const manufacturer = (query.manufacturer || '').trim();
+  const mfgFilter = manufacturer ? { manufacturer } : {};
+
+  const minQtyRaw = parseInt(query.minQty ?? '', 10);
+  const maxQtyRaw = parseInt(query.maxQty ?? '', 10);
+  const qtyParts: Record<string, unknown>[] = [];
+  if (!Number.isNaN(minQtyRaw) && minQtyRaw >= 0) {
+    qtyParts.push({ quantity: { $gte: minQtyRaw } });
+  }
+  if (!Number.isNaN(maxQtyRaw) && maxQtyRaw >= 0) {
+    qtyParts.push({ quantity: { $lte: maxQtyRaw } });
+  }
+  const qtyFilter =
+    qtyParts.length === 0 ? {} : qtyParts.length === 1 ? qtyParts[0]! : { $and: qtyParts };
+
+  const sampleVal = parseQueryBoolean(query.isSample);
+  const sampleFilter =
+    sampleVal === undefined ? {} : { isSample: sampleVal };
+
+  const hasImages = parseQueryBoolean(query.hasImages);
+  const imagesFilter =
+    hasImages === true
+      ? {
+          $or: [
+            { 'imageUrls.0': { $exists: true } },
+            {
+              imageUrl: { $exists: true, $nin: [null, ''] },
+            },
+          ],
+        }
+      : {};
+
+  const missingSlug = parseQueryBoolean(query.missingSlug);
+  const slugFilter =
+    missingSlug === true
+      ? {
+          $or: [
+            { seoSlug: { $exists: false } },
+            { seoSlug: '' },
+            { seoSlug: null },
+          ],
+        }
+      : {};
+
+  return mergeAndFilters(
+    textFilter,
+    mfgFilter,
+    qtyFilter as Record<string, unknown>,
+    sampleFilter,
+    imagesFilter,
+    slugFilter,
+  );
+}
+
 // --- Products CRUD ---
 router.get('/products', async (req, res, next) => {
   try {
     const query = req.query as Record<string, string>;
     const { page, limit } = parsePageLimit(query, { limit: 50, maxLimit: 200 });
-    const filter = buildSearchFilter(query.search || '', [
-      'partNumber',
-      'manufacturer',
-      'ourReference',
-      'description',
-    ]);
+    const filter = adminProductListFilterFromQuery(query);
 
     const sortSpec = buildMongoSortSpec(query, {
       allowlist: [
@@ -104,6 +215,7 @@ router.get('/products', async (req, res, next) => {
         'manufacturer',
         'quantity',
         'ourReference',
+        'seoSlug',
       ],
       fallback: { field: 'updatedAt', order: 'desc' },
       fieldDefaultOrder: {
@@ -112,6 +224,7 @@ router.get('/products', async (req, res, next) => {
         manufacturer: 'asc',
         quantity: 'desc',
         ourReference: 'asc',
+        seoSlug: 'asc',
       },
     });
 
@@ -137,9 +250,36 @@ router.get('/products', async (req, res, next) => {
   }
 });
 
+router.get('/products/slug-availability', async (req, res, next) => {
+  try {
+    const seoSlug = String(req.query.seoSlug ?? '').trim();
+    const excludeId =
+      String(req.query.excludeId ?? '').trim() || undefined;
+    if (!isValidSeoSlug(seoSlug)) {
+      res.status(400).json({ error: 'Invalid SEO slug format' });
+      return;
+    }
+    const taken = await isSeoSlugTaken(seoSlug, excludeId);
+    if (!taken) {
+      res.json({ available: true });
+      return;
+    }
+    const suggestion = await findFirstAvailableSlug(seoSlug, excludeId);
+    res.json({ available: false, suggestion });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/products', async (req, res, next) => {
   try {
     const data = productInputSchema.parse(req.body);
+
+    if (await isSeoSlugTaken(data.seoSlug)) {
+      res.status(409).json({ error: 'SEO slug already in use' });
+      return;
+    }
+
     const product = await Product.create(data);
     res
       .status(201)
@@ -156,6 +296,12 @@ router.post('/products', async (req, res, next) => {
 router.put('/products/:id', async (req, res, next) => {
   try {
     const data = productInputSchema.partial().parse(req.body);
+    if (data.seoSlug !== undefined) {
+      if (await isSeoSlugTaken(data.seoSlug, req.params.id)) {
+        res.status(409).json({ error: 'SEO slug already in use' });
+        return;
+      }
+    }
     const product = await Product.findByIdAndUpdate(req.params.id, data, {
       new: true,
     });
@@ -193,7 +339,8 @@ router.delete('/products/:id', async (req, res, next) => {
   }
 });
 
-// --- CSV Import (columns match Mongo Product: partNumber, _id, etc.) ---
+// --- CSV Import (columns: partNumber, seoSlug, description, quantity, ourReference,
+// manufacturer, dateCode, productSummary, technicalSpecs JSON, imageUrls, _id, etc.) ---
 const IMPORT_BATCH = 500;
 
 router.post(
@@ -224,19 +371,45 @@ router.post(
 
       const docs = rows
         .map((row) => productDocFromCsvRow(row))
-        .filter((doc) => String(doc.partNumber ?? '').trim().length > 0);
+        .filter(
+          (doc) =>
+            String(doc.partNumber ?? '').trim().length > 0 &&
+            String(doc.seoSlug ?? '').trim().length > 0,
+        );
 
       if (docs.length === 0) {
         fs.unlinkSync(req.file.path);
-        res.status(400).json({ error: 'No valid rows (missing partNumber)' });
+        res.status(400).json({
+          error:
+            'No valid rows (each row needs partNumber and seoSlug for import)',
+        });
         return;
       }
 
       let imported = 0;
-      for (let i = 0; i < docs.length; i += IMPORT_BATCH) {
-        const batch = docs.slice(i, i + IMPORT_BATCH);
-        const result = await Product.insertMany(batch);
-        imported += result.length;
+      for (const doc of docs) {
+        await Product.findOneAndUpdate(
+          { 
+            partNumber: doc.partNumber as string, 
+            manufacturer: doc.manufacturer as string 
+          },
+          { 
+            $set: {
+              description: doc.description,
+              dateCode: doc.dateCode,
+              seoSlug: doc.seoSlug,
+              productSummary: doc.productSummary,
+              technicalSpecs: doc.technicalSpecs,
+              imageUrls: doc.imageUrls,
+              isSample: doc.isSample,
+              updatedAt: new Date(),
+            },
+            $inc: { quantity: (doc.quantity as number) || 0 },
+            $addToSet: { ourReference: doc.ourReference as string }
+          },
+          { upsert: true, new: true }
+        );
+        imported++;
       }
 
       fs.unlinkSync(req.file!.path);

@@ -32,7 +32,12 @@ describe("Admin API", () => {
   describe("Stats", () => {
     it("GET /api/admin/stats returns counts", async () => {
       const token = await getAdminToken();
-      await Product.create({ partNumber: "TEST1", manufacturer: "X", quantity: 10 });
+      await Product.create({
+        partNumber: "TEST1",
+        manufacturer: "X",
+        quantity: 10,
+        seoSlug: "test1-stats-product",
+      });
       await ContactMessage.create({ fullName: "A", email: "a@a.com", message: "Hi" });
       await QuoteRequest.create({
         items: [{ partNumber: "P1", manufacturer: "M", quantity: 1, ourReference: "" }],
@@ -58,7 +63,12 @@ describe("Admin API", () => {
       const createRes = await request(app)
         .post("/api/admin/products")
         .set("Authorization", `Bearer ${token}`)
-        .send({ partNumber: "NEW-PART", manufacturer: "TEST", quantity: 500 });
+        .send({
+          partNumber: "NEW-PART",
+          manufacturer: "TEST",
+          quantity: 500,
+          seoSlug: "new-part-admin-crud",
+        });
       expect(createRes.status).toBe(201);
       const id = createRes.body._id;
 
@@ -76,13 +86,185 @@ describe("Admin API", () => {
       expect(deleteRes.body.success).toBe(true);
     });
 
+    it("GET /products/slug-availability reports taken slugs with suggestion", async () => {
+      const token = await getAdminToken();
+      await Product.create({
+        partNumber: "SLUG-A",
+        manufacturer: "M",
+        quantity: 1,
+        seoSlug: "slug-avail-test",
+      });
+
+      const free = await request(app)
+        .get("/api/admin/products/slug-availability?seoSlug=free-slug-xyz")
+        .set("Authorization", `Bearer ${token}`);
+      expect(free.status).toBe(200);
+      expect(free.body.available).toBe(true);
+
+      const taken = await request(app)
+        .get("/api/admin/products/slug-availability?seoSlug=slug-avail-test")
+        .set("Authorization", `Bearer ${token}`);
+      expect(taken.status).toBe(200);
+      expect(taken.body.available).toBe(false);
+      expect(taken.body.suggestion).toBe("slug-avail-test-1");
+    });
+
+    it("POST /products returns 409 when seoSlug is duplicate", async () => {
+      const token = await getAdminToken();
+      await Product.create({
+        partNumber: "DUP-1",
+        manufacturer: "M",
+        quantity: 1,
+        seoSlug: "duplicate-slug-test",
+      });
+
+      const res = await request(app)
+        .post("/api/admin/products")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          partNumber: "DUP-2",
+          manufacturer: "M",
+          quantity: 1,
+          seoSlug: "duplicate-slug-test",
+        });
+      expect(res.status).toBe(409);
+      expect(res.body.error).toMatch(/slug/i);
+    });
+
+    it("GET /products filters by manufacturer, qty range, isSample, hasImages", async () => {
+      const token = await getAdminToken();
+      await Product.insertMany([
+        {
+          partNumber: "FILT-A",
+          manufacturer: "Acme",
+          quantity: 100,
+          seoSlug: "filt-a",
+          isSample: false,
+          imageUrls: ["https://x.example/1.jpg"],
+        },
+        {
+          partNumber: "FILT-B",
+          manufacturer: "Beta",
+          quantity: 5,
+          seoSlug: "filt-b",
+          isSample: true,
+          imageUrls: [],
+        },
+        {
+          partNumber: "FILT-C",
+          manufacturer: "Acme",
+          quantity: 200,
+          seoSlug: "filt-c",
+          isSample: false,
+          imageUrl: "https://legacy.example/only.jpg",
+          imageUrls: [],
+        },
+      ]);
+
+      const byMfg = await request(app)
+        .get("/api/admin/products?manufacturer=Acme&limit=100")
+        .set("Authorization", `Bearer ${token}`);
+      expect(byMfg.status).toBe(200);
+      expect(byMfg.body.products.map((p: { partNumber: string }) => p.partNumber).sort()).toEqual(
+        ["FILT-A", "FILT-C"].sort(),
+      );
+
+      const byQty = await request(app)
+        .get("/api/admin/products?minQty=50&maxQty=150&limit=100")
+        .set("Authorization", `Bearer ${token}`);
+      expect(byQty.status).toBe(200);
+      expect(byQty.body.products.map((p: { partNumber: string }) => p.partNumber)).toContain(
+        "FILT-A",
+      );
+      expect(byQty.body.products.map((p: { partNumber: string }) => p.partNumber)).not.toContain(
+        "FILT-B",
+      );
+
+      const bySample = await request(app)
+        .get("/api/admin/products?isSample=true&limit=100")
+        .set("Authorization", `Bearer ${token}`);
+      expect(bySample.status).toBe(200);
+      expect(bySample.body.products.every((p: { isSample: boolean }) => p.isSample)).toBe(true);
+      expect(bySample.body.products.map((p: { partNumber: string }) => p.partNumber)).toContain(
+        "FILT-B",
+      );
+
+      const byImg = await request(app)
+        .get("/api/admin/products?hasImages=true&limit=100")
+        .set("Authorization", `Bearer ${token}`);
+      expect(byImg.status).toBe(200);
+      const parts = byImg.body.products.map((p: { partNumber: string }) => p.partNumber);
+      expect(parts).toContain("FILT-A");
+      expect(parts).toContain("FILT-C");
+      expect(parts).not.toContain("FILT-B");
+    });
+
+    it("GET /products searchField limits text search to one field", async () => {
+      const token = await getAdminToken();
+      await Product.insertMany([
+        {
+          partNumber: "UNIQUE-PN-XYZ",
+          manufacturer: "Other",
+          quantity: 1,
+          seoSlug: "unique-pn-xyz",
+          description: "no match here",
+        },
+        {
+          partNumber: "OTHER-PN",
+          manufacturer: "Other",
+          quantity: 1,
+          seoSlug: "other-pn",
+          description: "contains UNIQUE-PN-XYZ in text",
+        },
+      ]);
+
+      const scoped = await request(app)
+        .get(
+          "/api/admin/products?search=UNIQUE-PN-XYZ&searchField=partNumber&limit=100",
+        )
+        .set("Authorization", `Bearer ${token}`);
+      expect(scoped.status).toBe(200);
+      expect(scoped.body.products).toHaveLength(1);
+      expect(scoped.body.products[0].partNumber).toBe("UNIQUE-PN-XYZ");
+    });
+
+    it("GET /products missingSlug finds rows with empty or missing seoSlug", async () => {
+      const token = await getAdminToken();
+      const col = Product.collection;
+      await col.insertOne({
+        partNumber: "RAW-NO-SLUG",
+        manufacturer: "Z",
+        quantity: 1,
+        description: "",
+        ourReference: "",
+        dateCode: "",
+        imageUrls: [],
+        isSample: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const res = await request(app)
+        .get("/api/admin/products?missingSlug=true&limit=100")
+        .set("Authorization", `Bearer ${token}`);
+      expect(res.status).toBe(200);
+      expect(
+        res.body.products.some((p: { partNumber: string }) => p.partNumber === "RAW-NO-SLUG"),
+      ).toBe(true);
+    });
+
     it("Product images: reorder, delete, reject invalid reorder", async () => {
       const token = await getAdminToken();
 
       const createRes = await request(app)
         .post("/api/admin/products")
         .set("Authorization", `Bearer ${token}`)
-        .send({ partNumber: "IMG-CRUD", manufacturer: "X", quantity: 1 });
+        .send({
+          partNumber: "IMG-CRUD",
+          manufacturer: "X",
+          quantity: 1,
+          seoSlug: "img-crud-admin-test",
+        });
       expect(createRes.status).toBe(201);
       expect(createRes.body.imageUrls).toEqual([]);
       expect(createRes.body.imageUrl).toBeUndefined();

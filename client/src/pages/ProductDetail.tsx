@@ -4,7 +4,6 @@ import { Helmet } from "react-helmet-async";
 import { ArrowLeft, Package, ShoppingCart, Check } from "lucide-react";
 import { api } from "../lib/api";
 import type { Product } from "../lib/types";
-import { isValidObjectId } from "../lib/objectId";
 import { absoluteUrl } from "../lib/siteUrl";
 import { COMPANY } from "../lib/constants";
 import CloudinaryImage from "../components/CloudinaryImage";
@@ -14,6 +13,7 @@ import PageSeo from "../components/PageSeo";
 function productJsonLd(product: Product, canonical: string) {
   const name = `${product.partNumber}${product.manufacturer ? ` — ${product.manufacturer}` : ""}`;
   const desc =
+    product.productSummary?.trim() ||
     product.description?.trim() ||
     `${product.partNumber} electronic component${product.manufacturer ? ` by ${product.manufacturer}` : ""}.`;
   const data: Record<string, unknown> = {
@@ -36,11 +36,25 @@ function productJsonLd(product: Product, canonical: string) {
   if (canonical.startsWith("http")) {
     data.url = canonical;
   }
+  const specs = product.technicalSpecs;
+  if (specs && typeof specs === "object") {
+    const entries = Object.entries(specs).filter(
+      ([, v]) => v !== undefined && v !== null,
+    );
+    if (entries.length > 0) {
+      data.additionalProperty = entries.map(([name, value]) => ({
+        "@type": "PropertyValue",
+        name,
+        value: typeof value === "object" ? JSON.stringify(value) : String(value),
+      }));
+    }
+  }
   return JSON.stringify(data);
 }
 
 export default function ProductDetail() {
-  const { productId } = useParams<{ productId: string }>();
+  const { seoSlug: seoSlugParam } = useParams<{ seoSlug: string }>();
+  const seoSlug = seoSlugParam ? decodeURIComponent(seoSlugParam).trim() : "";
   const { items, addItem, updateQuantity } = useQuote();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,11 +62,11 @@ export default function ProductDetail() {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [addQty, setAddQty] = useState(1);
 
-  const path = productId ? `/catalog/${productId}` : "/catalog";
+  const path = seoSlug ? `/catalog/${encodeURIComponent(seoSlug)}` : "/catalog";
 
   useEffect(() => {
     setActiveImageIndex(0);
-  }, [productId]);
+  }, [seoSlug]);
 
   useEffect(() => {
     if (!product) return;
@@ -63,15 +77,16 @@ export default function ProductDetail() {
   }, [product?._id, product?.imageUrls.join("|")]);
 
   useEffect(() => {
-    if (!isValidObjectId(productId)) {
+    if (!seoSlug) {
       setLoading(false);
       return;
     }
     let cancelled = false;
+    setProduct(null);
     setLoading(true);
     setNotFound(false);
     api
-      .get<Product>(`/products/${productId}`)
+      .get<Product>(`/products/slug/${encodeURIComponent(seoSlug)}`)
       .then((p) => {
         if (!cancelled) setProduct(p);
       })
@@ -84,19 +99,19 @@ export default function ProductDetail() {
     return () => {
       cancelled = true;
     };
-  }, [productId]);
-
-  const quoteLineQty = items.find((i) => i.productId === productId)?.quantity;
+  }, [seoSlug]);
 
   useEffect(() => {
-    if (quoteLineQty !== undefined) {
-      setAddQty(quoteLineQty);
+    if (!product) return;
+    const line = items.find((i) => i.productId === product._id);
+    if (line !== undefined) {
+      setAddQty(line.quantity);
     } else {
       setAddQty(1);
     }
-  }, [productId, quoteLineQty]);
+  }, [product?._id, items]);
 
-  if (!isValidObjectId(productId)) {
+  if (!seoSlug) {
     return <Navigate to="/catalog" replace />;
   }
 
@@ -141,13 +156,24 @@ export default function ProductDetail() {
     );
   }
 
-  const canonical = absoluteUrl(`/catalog/${product._id}`);
+  const catalogPath = `/catalog/${encodeURIComponent(product.seoSlug)}`;
+  const canonical = absoluteUrl(catalogPath);
   const images = product.imageUrls;
   const titleBase = `${product.partNumber} — ${product.manufacturer || "Component"}`;
   const metaDescription =
+    product.productSummary?.trim().slice(0, 160) ||
     product.description?.trim().slice(0, 160) ||
     `${product.partNumber}${product.manufacturer ? ` by ${product.manufacturer}` : ""}. In stock at ${COMPANY.name}. Request a quote online.`;
   const isInQuote = items.some((i) => i.productId === product._id);
+
+  const specEntries =
+    product.technicalSpecs &&
+    typeof product.technicalSpecs === "object" &&
+    !Array.isArray(product.technicalSpecs)
+      ? Object.entries(product.technicalSpecs).filter(
+          ([, v]) => v !== undefined && v !== null,
+        )
+      : [];
 
   const handleQuoteAction = () => {
     const quantity = Math.max(1, Math.floor(Number(addQty)) || 1);
@@ -169,7 +195,7 @@ export default function ProductDetail() {
       <PageSeo
         title={titleBase}
         description={metaDescription}
-        path={`/catalog/${product._id}`}
+        path={catalogPath}
         ogImage={images[0]}
       />
       <Helmet>
@@ -247,9 +273,32 @@ export default function ProductDetail() {
                 ) : null}
               </div>
               {product.description ? (
-                <p className="text-text-secondary text-sm leading-relaxed mb-8">
-                  {product.description}
-                </p>
+                <div className="text-text-secondary text-sm leading-relaxed mb-6 space-y-3">
+                  {product.description.split(/\n\n+/).map((para, i) => (
+                    <p key={i}>{para}</p>
+                  ))}
+                </div>
+              ) : null}
+              {specEntries.length > 0 ? (
+                <div className="mb-8">
+                  <h2 className="text-sm font-semibold text-white mb-3">
+                    Technical specifications
+                  </h2>
+                  <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm border border-border rounded-lg p-4 bg-bg-card">
+                    {specEntries.map(([key, value]) => (
+                      <div key={key} className="flex flex-col sm:flex-row sm:gap-2">
+                        <dt className="text-text-secondary shrink-0 font-medium">
+                          {key}
+                        </dt>
+                        <dd className="text-white break-words">
+                          {typeof value === "object"
+                            ? JSON.stringify(value)
+                            : String(value)}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
               ) : null}
               <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
                 <label className="flex items-center gap-2 text-sm text-text-secondary">

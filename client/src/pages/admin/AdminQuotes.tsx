@@ -2,9 +2,11 @@ import { useState, useEffect, type KeyboardEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ChevronDown, ChevronUp, Search } from "lucide-react";
 import { adminApi } from "../../lib/adminApi";
+import { effectiveListSort, parsePageFromSearchParams } from "../../lib/listUrlQuery";
 import type { QuoteRequest, QuoteRequestLine } from "../../lib/types";
 import Pagination from "../../components/Pagination";
 import { useAsyncQuery } from "../../hooks/useAsyncQuery";
+import { useDebouncedSearchToUrl } from "../../hooks/useDebouncedSearchToUrl";
 
 interface QuotesResponse {
   quotes: QuoteRequest[];
@@ -58,31 +60,17 @@ const QUOTE_SORT_OPTIONS: { value: string; label: string }[] = [
   { value: "customerEmail:desc", label: "Email (Z–A)" },
 ];
 
-function effectiveQuoteSort(searchParams: URLSearchParams): {
-  field: string;
-  order: "asc" | "desc";
-  presetValue: string;
-} {
-  const raw = searchParams.get("sort")?.trim();
-  const field =
-    raw && (QUOTE_SORT_FIELDS as readonly string[]).includes(raw)
-      ? raw
-      : "createdAt";
-  const o = searchParams.get("order")?.toLowerCase();
-  const order: "asc" | "desc" =
-    o === "asc" || o === "desc" ? o : QUOTE_FIELD_ORDER[field] ?? "desc";
-  return { field, order, presetValue: `${field}:${order}` };
-}
-
 export default function AdminQuotes() {
   const [searchParams, setSearchParams] = useSearchParams();
   const searchFromUrl = searchParams.get("search") || "";
   const filterStatus = searchParams.get("status") || "";
-  const pageParam = parseInt(searchParams.get("page") || "1", 10);
-  const page =
-    Number.isFinite(pageParam) && pageParam >= 1 ? pageParam : 1;
+  const page = parsePageFromSearchParams(searchParams);
   const { field: sortField, order: sortOrder, presetValue } =
-    effectiveQuoteSort(searchParams);
+    effectiveListSort(searchParams, {
+      allowedFields: QUOTE_SORT_FIELDS,
+      defaultField: "createdAt",
+      fieldDefaultOrder: QUOTE_FIELD_ORDER,
+    });
 
   const [searchInput, setSearchInput] = useState(searchFromUrl);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -98,18 +86,12 @@ export default function AdminQuotes() {
     setSearchInput(searchFromUrl);
   }, [searchFromUrl]);
 
-  useEffect(() => {
-    const t = setTimeout(() => {
-      const q = searchInput.trim();
-      if (q === searchFromUrl) return;
-      const next = new URLSearchParams(searchParams);
-      if (q) next.set("search", q);
-      else next.delete("search");
-      next.set("page", "1");
-      setSearchParams(next, { replace: true });
-    }, 350);
-    return () => clearTimeout(t);
-  }, [searchInput, searchFromUrl, searchParams, setSearchParams]);
+  useDebouncedSearchToUrl({
+    searchInput,
+    urlSearch: searchFromUrl,
+    searchParams,
+    setSearchParams,
+  });
 
   const setPage = (p: number) => {
     const next = new URLSearchParams(searchParams);

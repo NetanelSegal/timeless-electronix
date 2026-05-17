@@ -6,6 +6,9 @@ export interface Product {
   ourReference: string;
   manufacturer: string;
   dateCode: string;
+  seoSlug: string;
+  productSummary: string;
+  technicalSpecs?: Record<string, string | number | boolean>;
   imageUrls: string[];
   isSample: boolean;
   createdAt: string;

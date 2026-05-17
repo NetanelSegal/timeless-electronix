@@ -6,9 +6,34 @@ import { Product } from "../models/Product.js";
 describe("Products API", () => {
   beforeEach(async () => {
     await Product.insertMany([
-      { partNumber: "RC0402JR-074K7L", manufacturer: "YAGEO", description: "Resistor", quantity: 80000, ourReference: "NB100/1", dateCode: "2020" },
-      { partNumber: "CL03A104KQ3NNNC", manufacturer: "SAMSUNG", description: "Capacitor", quantity: 100000, ourReference: "NB200/2", dateCode: "1747" },
-      { partNumber: "GRM1555C1H7R0DZ01D", manufacturer: "Murata", description: "Cap 0402", quantity: 1984, ourReference: "NB1219/34", dateCode: "" },
+      {
+        partNumber: "RC0402JR-074K7L",
+        manufacturer: "YAGEO",
+        description: "Resistor",
+        quantity: 80000,
+        ourReference: "NB100/1",
+        dateCode: "2020",
+        seoSlug: "yageo-rc0402jr-074k7l",
+        productSummary: "YAGEO resistor",
+      },
+      {
+        partNumber: "CL03A104KQ3NNNC",
+        manufacturer: "SAMSUNG",
+        description: "Capacitor",
+        quantity: 100000,
+        ourReference: "NB200/2",
+        dateCode: "1747",
+        seoSlug: "samsung-cl03a104kq3nnnc",
+      },
+      {
+        partNumber: "GRM1555C1H7R0DZ01D",
+        manufacturer: "Murata",
+        description: "Cap 0402",
+        quantity: 1984,
+        ourReference: "NB1219/34",
+        dateCode: "",
+        seoSlug: "murata-grm1555c1h7r0dz01d",
+      },
     ]);
   });
 
@@ -21,6 +46,7 @@ describe("Products API", () => {
     for (const p of res.body.products) {
       expect(Array.isArray(p.imageUrls)).toBe(true);
       expect(p.imageUrl).toBeUndefined();
+      expect(typeof p.seoSlug).toBe("string");
     }
   });
 
@@ -30,10 +56,10 @@ describe("Products API", () => {
       manufacturer: "M",
       description: "",
       quantity: 1,
+      seoSlug: "legacy-img-part",
       imageUrl: "https://res.cloudinary.com/demo/image/upload/v1/sample.jpg",
     });
-    const doc = await Product.findOne({ partNumber: "LEGACY-IMG" }).lean();
-    const res = await request(app).get(`/api/products/${doc!._id}`);
+    const res = await request(app).get("/api/products/slug/legacy-img-part");
     expect(res.status).toBe(200);
     expect(res.body.imageUrls).toEqual([
       "https://res.cloudinary.com/demo/image/upload/v1/sample.jpg",
@@ -62,15 +88,20 @@ describe("Products API", () => {
     expect(res.body).toHaveLength(3);
   });
 
-  it("GET /api/products/:id returns a single product", async () => {
+  it("GET /api/products/slug/:seoSlug returns a single product", async () => {
     const product = await Product.findOne({ partNumber: "RC0402JR-074K7L" });
-    const res = await request(app).get(`/api/products/${product!._id}`);
+    const res = await request(app).get(
+      `/api/products/slug/${encodeURIComponent(product!.seoSlug)}`,
+    );
     expect(res.status).toBe(200);
     expect(res.body.partNumber).toBe("RC0402JR-074K7L");
+    expect(res.body.seoSlug).toBe("yageo-rc0402jr-074k7l");
   });
 
-  it("GET /api/products/:id returns 404 for invalid id", async () => {
-    const res = await request(app).get("/api/products/000000000000000000000000");
+  it("GET /api/products/slug/:seoSlug returns 404 when not found", async () => {
+    const res = await request(app).get(
+      "/api/products/slug/does-not-exist-slug-xyz",
+    );
     expect(res.status).toBe(404);
   });
 
@@ -80,7 +111,9 @@ describe("Products API", () => {
     expect(res.status).toBe(200);
     expect(res.headers["content-type"]).toMatch(/application\/xml/);
     expect(res.text).toContain("https://www.example.com/catalog");
-    expect(res.text).toContain(`https://www.example.com/catalog/${product!._id}`);
+    expect(res.text).toContain(
+      `https://www.example.com/catalog/${product!.seoSlug}`,
+    );
     expect(res.text).toContain("https://www.example.com/about");
   });
 });

@@ -10,6 +10,11 @@ export function productDocFromCsvRow(row: ProductCsvRow): Record<string, unknown
   const ourReference = String(row.ourReference ?? row.our_reference ?? "").trim();
   const manufacturer = String(row.manufacturer ?? row.mfg ?? "").trim();
   const dateCode = String(row.dateCode ?? row.date_code ?? "").trim();
+  const seoSlug = String(row.seoSlug ?? row.seo_slug ?? "").trim();
+  const productSummary = String(
+    row.productSummary ?? row.product_summary ?? "",
+  ).trim();
+  const specsRaw = String(row.technicalSpecs ?? row.technical_specs ?? "").trim();
   const idStr = String(row._id ?? row.id ?? "").trim();
   const urlsRaw = String(row.imageUrls ?? row.image_urls ?? "").trim();
   const imageUrls = urlsRaw
@@ -28,6 +33,19 @@ export function productDocFromCsvRow(row: ProductCsvRow): Record<string, unknown
         .trim()
         .toLowerCase() === "true",
   };
+
+  if (seoSlug) doc.seoSlug = seoSlug;
+  if (productSummary) doc.productSummary = productSummary;
+  if (specsRaw) {
+    try {
+      const parsed = JSON.parse(specsRaw) as unknown;
+      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+        doc.technicalSpecs = parsed;
+      }
+    } catch {
+      /* omit invalid JSON */
+    }
+  }
 
   if (imageUrls.length) doc.imageUrls = imageUrls;
   if (idStr && mongoose.Types.ObjectId.isValid(idStr)) {

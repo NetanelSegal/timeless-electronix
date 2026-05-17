@@ -16,7 +16,13 @@ router.get('/', async (req, res, next) => {
     const manufacturer = query.manufacturer || '';
 
     const filter: Record<string, unknown> = {
-      ...buildSearchFilter(query.search || '', ['partNumber', 'manufacturer']),
+      ...buildSearchFilter(query.search || '', [
+        'partNumber',
+        'manufacturer',
+        'description',
+        'productSummary',
+        'seoSlug',
+      ]),
     };
 
     if (manufacturer) {
@@ -68,9 +74,14 @@ router.get('/manufacturers', async (_req, res, next) => {
   }
 });
 
-router.get('/:id', async (req, res, next) => {
+router.get('/slug/:seoSlug', async (req, res, next) => {
   try {
-    const product = await Product.findById(req.params.id).lean();
+    const seoSlug = decodeURIComponent(req.params.seoSlug).trim();
+    if (!seoSlug) {
+      res.status(404).json({ error: 'Product not found' });
+      return;
+    }
+    const product = await Product.findOne({ seoSlug }).lean();
     if (!product) {
       res.status(404).json({ error: 'Product not found' });
       return;

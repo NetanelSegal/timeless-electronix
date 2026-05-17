@@ -16,6 +16,8 @@ const envSchema = z.object({
   FROM_EMAIL: z.string().email().default('noreply@timeless-electronix.com'),
   PORT: z.coerce.number().default(3001),
   CLIENT_URL: z.string().default('http://localhost:5173'),
+  /** Public site origin for sitemap `<loc>` (no trailing slash). Falls back to CLIENT_URL when empty. */
+  PUBLIC_SITE_URL: z.string().default(''),
 });
 
 export const env = envSchema.parse(process.env);

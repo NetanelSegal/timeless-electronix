@@ -22,6 +22,24 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/quotes', quoteRoutes);
 app.use('/api/admin', adminRoutes);
 
+app.get('/sitemap.xml', async (req, res, next) => {
+  try {
+    const siteBase = env.PUBLIC_SITE_URL.trim() || env.CLIENT_URL;
+    if (
+      process.env.NODE_ENV === 'production' &&
+      fs.existsSync(sitemapPath)
+    ) {
+      res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.send(fs.readFileSync(sitemapPath, 'utf8'));
+      return;
+    }
+    await sendSitemapXml(res, siteBase);
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
