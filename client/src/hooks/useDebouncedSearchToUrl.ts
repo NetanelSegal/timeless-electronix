@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import type { SetURLSearchParams } from "react-router-dom";
+import { useDebouncedValue } from "./useDebouncedValue";
 
 /**
  * After `delayMs`, sync trimmed `searchInput` to the URL search param and reset `page` to 1.
@@ -22,23 +23,22 @@ export function useDebouncedSearchToUrl(options: {
     paramKey = "search",
   } = options;
 
+  const debouncedSearch = useDebouncedValue(searchInput.trim(), delayMs, {
+    initial: urlSearch,
+  });
+
   useEffect(() => {
-    const t = setTimeout(() => {
-      const q = searchInput.trim();
-      if (q === urlSearch) return;
-      const next = new URLSearchParams(searchParams);
-      if (q) next.set(paramKey, q);
-      else next.delete(paramKey);
-      next.set("page", "1");
-      setSearchParams(next, { replace: true });
-    }, delayMs);
-    return () => clearTimeout(t);
+    if (debouncedSearch === urlSearch) return;
+    const next = new URLSearchParams(searchParams);
+    if (debouncedSearch) next.set(paramKey, debouncedSearch);
+    else next.delete(paramKey);
+    next.set("page", "1");
+    setSearchParams(next, { replace: true });
   }, [
-    searchInput,
+    debouncedSearch,
     urlSearch,
     searchParams,
     setSearchParams,
-    delayMs,
     paramKey,
   ]);
 }

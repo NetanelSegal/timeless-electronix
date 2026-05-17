@@ -11,6 +11,7 @@ import {
 import { adminApi } from "../../lib/adminApi";
 import type { Product } from "../../lib/types";
 import CloudinaryImage from "../../components/CloudinaryImage";
+import { useProductSeoSlug } from "../../hooks/admin/useProductSeoSlug";
 
 type SpecRow = { id: string; key: string; value: string };
 
@@ -279,6 +280,9 @@ export function ProductFormModal({
   onSave: (data: Partial<Product>) => void;
   onClose: () => void;
 }) {
+  const isEdit = !!product?._id;
+  const initialSlug = product?.seoSlug || "";
+
   const [form, setForm] = useState({
     partNumber: product?.partNumber || "",
     manufacturer: product?.manufacturer || "",
@@ -286,8 +290,23 @@ export function ProductFormModal({
     quantity: product?.quantity ?? 0,
     ourReference: product?.ourReference || "",
     dateCode: product?.dateCode || "",
-    seoSlug: product?.seoSlug || "",
     productSummary: product?.productSummary || "",
+  });
+
+  const {
+    seoSlug,
+    setSeoSlug,
+    slugSource,
+    setSlugSource,
+    status: slugStatus,
+    regenerate,
+    canSubmit: slugCanSubmit,
+  } = useProductSeoSlug({
+    partNumber: form.partNumber,
+    manufacturer: form.manufacturer,
+    productId: product?._id,
+    initialSlug,
+    isEdit,
   });
 
   const [specRows, setSpecRows] = useState<SpecRow[]>(() =>
@@ -298,11 +317,26 @@ export function ProductFormModal({
     setSpecRows(rowsFromTechnicalSpecs(product?.technicalSpecs));
   }, [product?._id]);
 
+  const slugHelperText = (() => {
+    if (!form.partNumber.trim() && slugSource === "auto") {
+      return "Enter a part number to generate a slug.";
+    }
+    if (slugStatus === "checking") return "Checking availability…";
+    if (slugStatus === "invalid") return "Use lowercase letters, digits, and hyphens only.";
+    if (slugStatus === "taken") return "This slug is already in use.";
+    if (slugStatus === "available" && seoSlug) {
+      return `Catalog URL: /catalog/${seoSlug}`;
+    }
+    return null;
+  })();
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    if (!slugCanSubmit || !seoSlug) return;
     const technicalSpecs = recordFromSpecRows(specRows);
     onSave({
       ...form,
+      seoSlug,
       technicalSpecs,
     });
   };
@@ -339,20 +373,52 @@ export function ProductFormModal({
               />
             </div>
             <div>
-              <label className="text-xs text-text-secondary">
-                SEO slug *{" "}
-                <span className="text-text-secondary/80">(a-z 0-9 -)</span>
-              </label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-xs text-text-secondary">SEO slug</label>
+                <div className="flex gap-2">
+                  {slugSource === "manual" ? (
+                    <button
+                      type="button"
+                      onClick={regenerate}
+                      className="text-[11px] text-green-accent hover:underline"
+                    >
+                      Use suggested
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setSlugSource("manual")}
+                      className="text-[11px] text-green-accent hover:underline"
+                    >
+                      Edit slug
+                    </button>
+                  )}
+                </div>
+              </div>
               <input
-                required
-                pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
-                title="Lowercase letters, digits, and hyphens only"
-                value={form.seoSlug}
-                onChange={(e) =>
-                  setForm({ ...form, seoSlug: e.target.value.toLowerCase() })
+                readOnly={slugSource === "auto"}
+                value={seoSlug}
+                onChange={(e) => setSeoSlug(e.target.value)}
+                placeholder={
+                  slugSource === "auto" ? "Generating…" : "custom-slug"
                 }
-                className="w-full mt-1 bg-bg-card border border-border rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-green-accent"
+                className={`w-full mt-1 border rounded px-3 py-2 text-sm focus:outline-none focus:border-green-accent ${
+                  slugSource === "auto"
+                    ? "bg-bg-card/50 border-border/50 text-text-secondary cursor-default"
+                    : "bg-bg-card border-border text-white"
+                }`}
               />
+              {slugHelperText ? (
+                <p
+                  className={`mt-1 text-[11px] ${
+                    slugStatus === "taken" || slugStatus === "invalid"
+                      ? "text-red-400"
+                      : "text-text-secondary/80"
+                  }`}
+                >
+                  {slugHelperText}
+                </p>
+              ) : null}
             </div>
             <div>
               <label className="text-xs text-text-secondary">
@@ -506,7 +572,8 @@ export function ProductFormModal({
             </button>
             <button
               type="submit"
-              className="bg-green-brand hover:bg-green-accent text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors"
+              disabled={!slugCanSubmit}
+              className="bg-green-brand hover:bg-green-accent disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors"
             >
               Save
             </button>

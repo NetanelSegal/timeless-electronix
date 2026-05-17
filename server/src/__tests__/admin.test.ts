@@ -86,6 +86,51 @@ describe("Admin API", () => {
       expect(deleteRes.body.success).toBe(true);
     });
 
+    it("GET /products/slug-availability reports taken slugs with suggestion", async () => {
+      const token = await getAdminToken();
+      await Product.create({
+        partNumber: "SLUG-A",
+        manufacturer: "M",
+        quantity: 1,
+        seoSlug: "slug-avail-test",
+      });
+
+      const free = await request(app)
+        .get("/api/admin/products/slug-availability?seoSlug=free-slug-xyz")
+        .set("Authorization", `Bearer ${token}`);
+      expect(free.status).toBe(200);
+      expect(free.body.available).toBe(true);
+
+      const taken = await request(app)
+        .get("/api/admin/products/slug-availability?seoSlug=slug-avail-test")
+        .set("Authorization", `Bearer ${token}`);
+      expect(taken.status).toBe(200);
+      expect(taken.body.available).toBe(false);
+      expect(taken.body.suggestion).toBe("slug-avail-test-1");
+    });
+
+    it("POST /products returns 409 when seoSlug is duplicate", async () => {
+      const token = await getAdminToken();
+      await Product.create({
+        partNumber: "DUP-1",
+        manufacturer: "M",
+        quantity: 1,
+        seoSlug: "duplicate-slug-test",
+      });
+
+      const res = await request(app)
+        .post("/api/admin/products")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          partNumber: "DUP-2",
+          manufacturer: "M",
+          quantity: 1,
+          seoSlug: "duplicate-slug-test",
+        });
+      expect(res.status).toBe(409);
+      expect(res.body.error).toMatch(/slug/i);
+    });
+
     it("GET /products filters by manufacturer, qty range, isSample, hasImages", async () => {
       const token = await getAdminToken();
       await Product.insertMany([

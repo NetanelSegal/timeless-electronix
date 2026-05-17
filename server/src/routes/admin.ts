@@ -29,8 +29,11 @@ import {
   productDocFromCsvRow,
   type ProductCsvRow,
 } from '../utils/productCsvImport.js';
-
-const SEO_SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+import { SEO_SLUG_REGEX, isValidSeoSlug } from '../utils/seoSlug.js';
+import {
+  findFirstAvailableSlug,
+  isSeoSlugTaken,
+} from '../services/productSlugService.js';
 
 const technicalSpecsField = z
   .unknown()
@@ -247,14 +250,36 @@ router.get('/products', async (req, res, next) => {
   }
 });
 
+router.get('/products/slug-availability', async (req, res, next) => {
+  try {
+    const seoSlug = String(req.query.seoSlug ?? '').trim();
+    const excludeId =
+      String(req.query.excludeId ?? '').trim() || undefined;
+    if (!isValidSeoSlug(seoSlug)) {
+      res.status(400).json({ error: 'Invalid SEO slug format' });
+      return;
+    }
+    const taken = await isSeoSlugTaken(seoSlug, excludeId);
+    if (!taken) {
+      res.json({ available: true });
+      return;
+    }
+    const suggestion = await findFirstAvailableSlug(seoSlug, excludeId);
+    res.json({ available: false, suggestion });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/products', async (req, res, next) => {
   try {
     const data = productInputSchema.parse(req.body);
-    const slugTaken = await Product.findOne({ seoSlug: data.seoSlug }).lean();
-    if (slugTaken) {
-      res.status(400).json({ error: 'This SEO slug is already in use' });
+
+    if (await isSeoSlugTaken(data.seoSlug)) {
+      res.status(409).json({ error: 'SEO slug already in use' });
       return;
     }
+
     const product = await Product.create(data);
     res
       .status(201)
@@ -272,12 +297,8 @@ router.put('/products/:id', async (req, res, next) => {
   try {
     const data = productInputSchema.partial().parse(req.body);
     if (data.seoSlug !== undefined) {
-      const slugTaken = await Product.findOne({
-        seoSlug: data.seoSlug,
-        _id: { $ne: req.params.id },
-      }).lean();
-      if (slugTaken) {
-        res.status(400).json({ error: 'This SEO slug is already in use' });
+      if (await isSeoSlugTaken(data.seoSlug, req.params.id)) {
+        res.status(409).json({ error: 'SEO slug already in use' });
         return;
       }
     }
