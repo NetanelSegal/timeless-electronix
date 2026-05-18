@@ -1,7 +1,17 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import request from "supertest";
 import app from "../app.js";
 import { Product } from "../models/Product.js";
+import { buildSitemapXmlString } from "../utils/sitemap.js";
+
+const sitemapPath = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "sitemap.xml",
+);
 
 describe("Products API", () => {
   beforeEach(async () => {
@@ -105,8 +115,12 @@ describe("Products API", () => {
     expect(res.status).toBe(404);
   });
 
-  it("GET /sitemap.xml streams XML with static and product URLs", async () => {
+  it("GET /sitemap.xml serves the prebuilt file", async () => {
     const product = await Product.findOne({ partNumber: "RC0402JR-074K7L" });
+    fs.writeFileSync(
+      sitemapPath,
+      await buildSitemapXmlString("https://www.example.com"),
+    );
     const res = await request(app).get("/sitemap.xml");
     expect(res.status).toBe(200);
     expect(res.headers["content-type"]).toMatch(/application\/xml/);
@@ -115,5 +129,11 @@ describe("Products API", () => {
       `https://www.example.com/catalog/${product!.seoSlug}`,
     );
     expect(res.text).toContain("https://www.example.com/about");
+  });
+
+  afterEach(() => {
+    if (fs.existsSync(sitemapPath)) {
+      fs.unlinkSync(sitemapPath);
+    }
   });
 });

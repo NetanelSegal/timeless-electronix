@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 import cors from 'cors';
 import { env } from './config/env.js';
@@ -8,11 +9,14 @@ import productRoutes from './routes/products.js';
 import contactRoutes from './routes/contact.js';
 import quoteRoutes from './routes/quotes.js';
 import adminRoutes from './routes/admin.js';
-import { sendSitemapXml } from './utils/sitemap.js';
 
 const app = express();
 
-const sitemapPath = path.join(process.cwd(), 'dist', 'sitemap.xml');
+/** Written by `buildSitemap.ts` next to the compiled app (`server/dist/sitemap.xml`). */
+const sitemapPath = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  'sitemap.xml',
+);
 
 app.use(cors({ origin: env.CLIENT_URL }));
 app.use(express.json({ limit: '10mb' }));
@@ -22,19 +26,15 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/quotes', quoteRoutes);
 app.use('/api/admin', adminRoutes);
 
-app.get('/sitemap.xml', async (req, res, next) => {
+app.get('/sitemap.xml', (req, res, next) => {
   try {
-    const siteBase = env.PUBLIC_SITE_URL.trim() || env.CLIENT_URL;
-    if (
-      process.env.NODE_ENV === 'production' &&
-      fs.existsSync(sitemapPath)
-    ) {
-      res.setHeader('Content-Type', 'application/xml; charset=utf-8');
-      res.setHeader('Cache-Control', 'public, max-age=3600');
-      res.send(fs.readFileSync(sitemapPath, 'utf8'));
+    if (!fs.existsSync(sitemapPath)) {
+      res.status(404).type('text/plain').send('Sitemap not found.');
       return;
     }
-    await sendSitemapXml(res, siteBase);
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(fs.readFileSync(sitemapPath, 'utf8'));
   } catch (err) {
     next(err);
   }

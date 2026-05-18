@@ -5,13 +5,25 @@ import { env } from '../config/env.js';
 import { buildSitemapXmlString } from '../utils/sitemap.js';
 import { fileURLToPath } from 'node:url';
 
-const dirname = path.dirname(fileURLToPath(import.meta.url));
-const outPath = path.resolve(
-  dirname,
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
   '..',
   '..',
   '..',
+);
+
+/** Static SPA output (Cloudways Hybrid Stack / Apache document root). */
+export const clientSitemapPath = path.join(
+  repoRoot,
   'client',
+  'dist',
+  'sitemap.xml',
+);
+
+/** Prebuilt file read by Express in production. */
+export const serverSitemapPath = path.join(
+  repoRoot,
+  'server',
   'dist',
   'sitemap.xml',
 );
@@ -21,10 +33,12 @@ async function main() {
   await mongoose.connect(env.MONGODB_URI);
   const siteBase = env.PUBLIC_SITE_URL.trim() || env.CLIENT_URL;
   const xml = await buildSitemapXmlString(siteBase);
-  fs.mkdirSync(path.dirname(outPath), { recursive: true });
-  fs.writeFileSync(outPath, xml, 'utf8');
+  for (const outPath of [clientSitemapPath, serverSitemapPath]) {
+    fs.mkdirSync(path.dirname(outPath), { recursive: true });
+    fs.writeFileSync(outPath, xml, 'utf8');
+    console.log(`buildSitemap: wrote ${outPath}`);
+  }
   await mongoose.disconnect();
-  console.log(`buildSitemap: wrote ${outPath}`);
 }
 
 main().catch((err) => {

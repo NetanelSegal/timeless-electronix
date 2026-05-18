@@ -1,13 +1,14 @@
 # ----------------------------------------------------------------------
-# Timeless Electronix - Production Configuration
+# Timeless Electronix - Cloudways Hybrid Stack (Apache + .htaccess)
 # ----------------------------------------------------------------------
+# Deploy the contents of client/dist/ to public_html (includes this file).
+# Run `npm run build` so sitemap.xml is generated into client/dist/.
 
 RewriteEngine On
 RewriteBase /
 
-# 1. ניתוב Sitemap לשרת ה-Node
-# מסביר לשרת שכל בקשה ל-sitemap.xml צריכה להימשך מפורט 3001
-RewriteRule ^sitemap\.xml$ http://127.0.0.1:3001/sitemap.xml [P,L]
+# 1. Sitemap — static XML from the build (no Node proxy). Apache serves the file as-is.
+RewriteRule ^sitemap\.xml$ - [L]
 
 # 2. ניתוב API (פרוקסי פנימי)
 # כל בקשה שמתחילה ב-api תועבר לשרת ה-Node בפורט 3001
@@ -18,6 +19,7 @@ RewriteRule ^(.*)$ http://127.0.0.1:3001/$1 [P,L]
 # 3. תמיכה ב-React Router (מניעת 404 ברענון דף)
 # אם הבקשה היא לא לקובץ קיים (כמו תמונה או CSS) ולא לתיקייה קיימת
 # השרת יגיש את index.html וה-React Router ידע איזה עמוד להציג
+RewriteCond %{REQUEST_URI} !^/sitemap\.xml$ [NC]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule . /index.html [L]

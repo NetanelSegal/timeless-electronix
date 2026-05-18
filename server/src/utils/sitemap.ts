@@ -1,4 +1,3 @@
-import type { Response } from "express";
 import { Product } from "../models/Product.js";
 
 export function escapeXml(s: string): string {
@@ -55,15 +54,4 @@ export async function buildSitemapXmlString(
 
   lines.push("</urlset>");
   return lines.join("\n");
-}
-
-/** Send sitemap XML (used when no prebuilt file, e.g. dev/test). */
-export async function sendSitemapXml(
-  res: Response,
-  siteBaseUrl: string,
-): Promise<void> {
-  const body = await buildSitemapXmlString(siteBaseUrl);
-  res.setHeader("Content-Type", "application/xml; charset=utf-8");
-  res.setHeader("Cache-Control", "public, max-age=3600");
-  res.send(body);
 }
