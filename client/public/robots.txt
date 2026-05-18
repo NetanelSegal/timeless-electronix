@@ -1,5 +1,5 @@
 User-agent: *
 Disallow: /admin
 
-# Sitemap is served from the same origin at the Express root path.
+# Static sitemap (generated at build time, same as this file).
 Sitemap: https://timeless-electronix.com/sitemap.xml
