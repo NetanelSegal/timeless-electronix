@@ -1,22 +1,16 @@
-# ----------------------------------------------------------------------
-# Timeless Electronix - Cloudways Hybrid Stack (Apache + .htaccess)
-# ----------------------------------------------------------------------
-# Deploy the contents of client/dist/ to public_html (includes this file).
-# Run `npm run build` so sitemap.xml is generated (client/public → dist).
-
-RewriteEngine On
-RewriteBase /
-
-# 1. ניתוב API (פרוקסי פנימי)
-# כל בקשה שמתחילה ב-api תועבר לשרת ה-Node בפורט 3001
-# הדגל [P] הוא הקריטי כאן - הוא אומר "פרוקסי" ולא "רידירקט"
-RewriteCond %{REQUEST_URI} ^/api [NC]
-RewriteRule ^(.*)$ http://127.0.0.1:3001/$1 [P,L]
-
-# 2. תמיכה ב-React Router (מניעת 404 ברענון דף)
-# אם הבקשה היא לא לקובץ קיים (כמו תמונה, CSS, robots.txt, sitemap.xml) ולא לתיקייה קיימת
-# השרת יגיש את index.html וה-React Router ידע איזה עמוד להציג
-RewriteCond %{REQUEST_URI} !^/sitemap\.xml$ [NC]
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule . /index.html [L]
+# ----------------------------------------------------------------------
+# Use this file ONLY when public_html = contents of client/dist/ (flat deploy).
+# On Cloudways with the full repo in public_html, use /.htaccess at repo root.
+# ----------------------------------------------------------------------
+
+RewriteEngine On
+RewriteBase /
+
+# API -> Node
+RewriteCond %{REQUEST_URI} ^/api [NC]
+RewriteRule ^(.*)$ http://127.0.0.1:3001/$1 [P,L]
+
+# React Router (static files like robots.txt and sitemap.xml are served as-is)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.html [L]
