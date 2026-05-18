@@ -1,0 +1,13 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # 1. Proxy all /api/* requests to the backend on port 3001
+    RewriteRule ^api/(.*)$ http://127.0.0.1:3001/api/$1 [P,L]
+
+    # 2. SPA Fallback: Serve the static file if it exists
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # 3. If it's not a static file and not an API request, serve index.html
+    RewriteRule ^ index.html [QSA,L]
+</IfModule>
