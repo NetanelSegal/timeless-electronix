@@ -86,7 +86,7 @@ export default function ProductDetail() {
     setLoading(true);
     setNotFound(false);
     api
-      .get<Product>(`/products/slug/${encodeURIComponent(seoSlug)}`)
+      .get<Product>(`/products?seoSlug=${encodeURIComponent(seoSlug)}`)
       .then((p) => {
         if (!cancelled) setProduct(p);
       })

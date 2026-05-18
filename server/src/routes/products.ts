@@ -6,12 +6,21 @@ import {
   buildMongoSortSpec,
 } from '../utils/helpers.js';
 import { serializeProduct } from '../utils/productImages.js';
+import { getProductBySeoSlug } from '../handlers/productBySlug.js';
 
 const router = Router();
+
+router.get('/slug/:seoSlug', getProductBySeoSlug);
 
 router.get('/', async (req, res, next) => {
   try {
     const query = req.query as Record<string, string>;
+    const exactSlug =
+      typeof query.seoSlug === 'string' ? query.seoSlug.trim() : '';
+    if (exactSlug) {
+      await getProductBySeoSlug(req, res, next);
+      return;
+    }
     const { page, limit } = parsePageLimit(query, { limit: 24, maxLimit: 100 });
     const manufacturer = query.manufacturer || '';
 
@@ -69,24 +78,6 @@ router.get('/manufacturers', async (_req, res, next) => {
     });
     manufacturers.sort((a, b) => (a > b ? 1 : -1));
     res.json(manufacturers);
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.get('/slug/:seoSlug', async (req, res, next) => {
-  try {
-    const seoSlug = decodeURIComponent(req.params.seoSlug).trim();
-    if (!seoSlug) {
-      res.status(404).json({ error: 'Product not found' });
-      return;
-    }
-    const product = await Product.findOne({ seoSlug }).lean();
-    if (!product) {
-      res.status(404).json({ error: 'Product not found' });
-      return;
-    }
-    res.json(serializeProduct(product as Record<string, unknown>));
   } catch (err) {
     next(err);
   }

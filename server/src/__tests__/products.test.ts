@@ -88,6 +88,16 @@ describe("Products API", () => {
     expect(res.body).toHaveLength(3);
   });
 
+  it("GET /api/products?seoSlug= returns a single product", async () => {
+    const product = await Product.findOne({ partNumber: "RC0402JR-074K7L" });
+    const res = await request(app).get(
+      `/api/products?seoSlug=${encodeURIComponent(product!.seoSlug)}`,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body.partNumber).toBe("RC0402JR-074K7L");
+    expect(res.body.seoSlug).toBe("yageo-rc0402jr-074k7l");
+  });
+
   it("GET /api/products/slug/:seoSlug returns a single product", async () => {
     const product = await Product.findOne({ partNumber: "RC0402JR-074K7L" });
     const res = await request(app).get(
