@@ -15,7 +15,10 @@ import {
 } from '../services/cloudinary.js';
 import {
   parsePageLimit,
+  buildSearchFilter,
   buildMongoSortSpec,
+  mergeAndFilters,
+  parseQueryBoolean,
 } from '../utils/helpers.js';
 import { productListFilterFromQuery } from '../utils/productListFilter.js';
 import {
