@@ -1,6 +1,7 @@
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import type { Product } from "../../lib/types";
+import ProductConditionBadge from "../ProductConditionBadge";
 import {
   DescriptionCell,
   PartNumberCell,
@@ -165,6 +166,21 @@ export function createAdminProductColumns(
       size: 100,
       minSize: 72,
       maxSize: 160,
+    }),
+    ch.accessor("condition", {
+      id: "condition",
+      header: plainHeader("Condition"),
+      cell: (ctx) => {
+        const value = ctx.getValue();
+        return value ? (
+          <ProductConditionBadge condition={value} variant="detail" />
+        ) : (
+          <span className="text-xs text-text-secondary">—</span>
+        );
+      },
+      size: 140,
+      minSize: 110,
+      maxSize: 220,
     }),
     ch.accessor("isSample", {
       id: "isSample",

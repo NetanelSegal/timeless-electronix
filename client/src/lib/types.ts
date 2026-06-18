@@ -1,3 +1,5 @@
+import type { ProductCondition } from "./productCondition";
+
 export interface Product {
   _id: string;
   partNumber: string;
@@ -6,6 +8,7 @@ export interface Product {
   ourReference: string;
   manufacturer: string;
   dateCode: string;
+  condition: ProductCondition;
   seoSlug: string;
   productSummary: string;
   technicalSpecs?: Record<string, string | number | boolean>;

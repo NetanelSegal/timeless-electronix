@@ -4,6 +4,7 @@ import { Package, ShoppingCart } from "lucide-react";
 import type { Product } from "../lib/types";
 import { useQuote } from "../context/QuoteContext";
 import CloudinaryImage from "./CloudinaryImage";
+import ProductConditionBadge from "./ProductConditionBadge";
 
 interface Props {
   product: Product;
@@ -73,7 +74,10 @@ export default function ProductCard({ product }: Props) {
         {product.description}
       </p>
 
-      <div className="flex gap-2 text-xs text-gray-400 mt-auto">
+      <div className="flex flex-wrap gap-2 text-xs text-gray-400 mt-auto">
+        {product.condition ? (
+          <ProductConditionBadge condition={product.condition} />
+        ) : null}
         {product.dateCode && (
           <span className="bg-gray-100 px-2 py-0.5 rounded">
             DC: {product.dateCode}

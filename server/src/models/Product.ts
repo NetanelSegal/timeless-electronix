@@ -7,6 +7,7 @@ export interface IProduct extends Document {
   ourReference: string;
   manufacturer: string;
   dateCode: string;
+  condition: 'New/Standard' | 'Used' | 'Refurbished' | 'Broken';
   /** URL segment for public catalog detail; unique. */
   seoSlug: string;
   /** Short copy for meta description / previews. */
@@ -30,6 +31,11 @@ const productSchema = new Schema<IProduct>(
     ourReference: { type: String, default: "" },
     manufacturer: { type: String, default: "", index: true },
     dateCode: { type: String, default: "" },
+    condition: {
+      type: String,
+      enum: ['New/Standard', 'Used', 'Refurbished', 'Broken'],
+      default: 'New/Standard'
+    },
     seoSlug: { type: String, required: true, unique: true, index: true },
     productSummary: { type: String, default: "" },
     technicalSpecs: { type: Schema.Types.Mixed },

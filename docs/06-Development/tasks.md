@@ -19,6 +19,7 @@
 - [x] **Testing**: 19 server API tests (Vitest + Supertest), all passing
 - [x] **Documentation**: Frameworks, Architecture, Development, Tests docs updated
 - [x] **Routing rewrite**: same-origin `/api` client base, Vite proxy for `/api` and `/sitemap.xml`, and Cloudways-ready Apache rewrite order via `client/public/.htaccess`
+- [x] **Product Status (Condition) Seeding & Enum Enforcement**: Added `condition` string enum field (`'New/Standard' | 'Used' | 'Refurbished' | 'Broken'`) to the Mongoose schema and TypeScript interface. Extracted statuses from `Timeless Stock List 15.06.26.xlsx` to update 13,315 matching database products, and standardized all database products to strictly conform to the enum.
 
 ## Backlog / Future
 

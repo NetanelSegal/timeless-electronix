@@ -59,6 +59,13 @@ const technicalSpecsField = z
     return undefined;
   });
 
+const PRODUCT_CONDITIONS = [
+  'New/Standard',
+  'Used',
+  'Refurbished',
+  'Broken',
+] as const;
+
 const productInputSchema = z.object({
   partNumber: z.string().min(1),
   manufacturer: z.string().default(''),
@@ -66,6 +73,7 @@ const productInputSchema = z.object({
   quantity: z.number().int().min(0).default(0),
   ourReference: z.string().default(''),
   dateCode: z.string().default(''),
+  condition: z.enum(PRODUCT_CONDITIONS).default('New/Standard'),
   seoSlug: z
     .string()
     .min(1)

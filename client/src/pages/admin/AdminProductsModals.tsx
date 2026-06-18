@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { adminApi } from "../../lib/adminApi";
 import type { Product } from "../../lib/types";
+import { PRODUCT_CONDITIONS, type ProductCondition } from "../../lib/productCondition";
 import CloudinaryImage from "../../components/CloudinaryImage";
 import { useProductSeoSlug } from "../../hooks/admin/useProductSeoSlug";
 
@@ -290,6 +291,7 @@ export function ProductFormModal({
     quantity: product?.quantity ?? 0,
     ourReference: product?.ourReference || "",
     dateCode: product?.dateCode || "",
+    condition: product?.condition || "New/Standard",
     productSummary: product?.productSummary || "",
   });
 
@@ -465,6 +467,25 @@ export function ProductFormModal({
                 }
                 className="w-full mt-1 bg-bg-card border border-border rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-green-accent"
               />
+            </div>
+            <div>
+              <label className="text-xs text-text-secondary">Condition</label>
+              <select
+                value={form.condition}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    condition: e.target.value as ProductCondition,
+                  })
+                }
+                className="w-full mt-1 bg-bg-card border border-border rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-green-accent"
+              >
+                {PRODUCT_CONDITIONS.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
           <div>

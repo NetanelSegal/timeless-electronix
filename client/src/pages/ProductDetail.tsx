@@ -9,6 +9,8 @@ import { COMPANY } from "../lib/constants";
 import CloudinaryImage from "../components/CloudinaryImage";
 import { useQuote } from "../context/QuoteContext";
 import PageSeo from "../components/PageSeo";
+import ProductConditionBadge from "../components/ProductConditionBadge";
+import type { ProductCondition } from "../lib/productCondition";
 
 function productJsonLd(product: Product, canonical: string) {
   const name = `${product.partNumber}${product.manufacturer ? ` — ${product.manufacturer}` : ""}`;
@@ -32,6 +34,15 @@ function productJsonLd(product: Product, canonical: string) {
   }
   if (product.manufacturer) {
     data.brand = { "@type": "Brand", name: product.manufacturer };
+  }
+  const itemConditionByStatus: Record<ProductCondition, string> = {
+    "New/Standard": "https://schema.org/NewCondition",
+    Used: "https://schema.org/UsedCondition",
+    Refurbished: "https://schema.org/RefurbishedCondition",
+    Broken: "https://schema.org/DamagedCondition",
+  };
+  if (product.condition) {
+    data.itemCondition = itemConditionByStatus[product.condition];
   }
   if (canonical.startsWith("http")) {
     data.url = canonical;
@@ -261,6 +272,12 @@ export default function ProductDetail() {
                   <Package size={14} className="text-green-accent" />
                   {product.quantity.toLocaleString()} in stock
                 </span>
+                {product.condition ? (
+                  <ProductConditionBadge
+                    condition={product.condition}
+                    variant="detail"
+                  />
+                ) : null}
                 {product.dateCode ? (
                   <span className="bg-bg-card px-3 py-1 rounded-lg border border-border">
                     DC: {product.dateCode}

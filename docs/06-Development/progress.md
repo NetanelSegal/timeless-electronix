@@ -1,5 +1,32 @@
 # Progress Log
 
+## 2026-06-18
+
+### Bulk database update and enum enforcement of product status (condition)
+
+Processed and updated the status/condition of existing products in the remote MongoDB database based on `Timeless Stock List 15.06.26.xlsx`:
+
+- **Restoration of Original Database**:
+  - Reverted the database to its exact original state (18,836 products) by clearing the collection and re-seeding from `server/final_products_ready.csv`.
+- **Mongoose Model & Enum Update**:
+  - Added the `condition` field to the Mongoose interface and schema in `server/src/models/Product.ts`.
+  - Configured `condition` strictly as an enum: `['New/Standard', 'Used', 'Refurbished', 'Broken']` with a default of `'New/Standard'`.
+- **Excel Processing & Status Mapping (Python)**:
+  - Scanned 25,276 rows of the stock list Excel sheet.
+  - Parsed Columns 4 and 5 for status keywords:
+    - Keywords like `broken`, `bent pins`, `scratched badly`, `damaged`, `scrap` mapped to `"Broken"`.
+    - Keywords like `used`, `parts or repair`, `AS-IS`, `parts`, `marks, hits` mapped to `"Used"`.
+    - Keyword `refurbished` mapped to `"Refurbished"`.
+    - Keywords `new`, `standard` mapped to `"New/Standard"`.
+  - Grouped condition classifications by `(partNumber, manufacturer)` case-insensitively, selecting the worst condition (Broken > Used > Refurbished > New/Standard) in case of multiple listings.
+  - Wrote status mappings to `server/temp_conditions_to_update.json`.
+- **Database Status Seeding & Standardization (TypeScript/Mongoose)**:
+  - Loaded database products in-memory and mapped their keys against the Excel condition map.
+  - Performed a highly optimized `bulkWrite` operation to update only the `condition` field of 13,315 matching database products.
+  - Wrote a standardization migration script (`server/src/scripts/standardizeConditions.ts`) that sanitized all other non-matching products in the database so that every product strictly adheres to one of the four enum values.
+  - Did not insert any new products and kept all original database quantities, descriptions, and slugs untouched.
+  - Cleaned up all temporary files.
+
 ## 2026-04-14
 
 ### Same-origin API + sitemap routing rewrite
