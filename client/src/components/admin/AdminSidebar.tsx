@@ -9,6 +9,8 @@ import {
   PanelLeft,
 } from "lucide-react";
 import { clearToken } from "../../lib/adminApi";
+import { COMPANY } from "../../lib/constants";
+import FullLogo from "../FullLogo";
 
 const LINKS = [
   { to: "/admin", label: "Dashboard", Icon: LayoutDashboard },
@@ -37,16 +39,25 @@ export default function AdminSidebar({
         collapsed ? "w-16" : "w-60"
       } bg-bg-secondary border-r border-border flex flex-col shrink-0 transition-[width] duration-200 ease-out`}
     >
-      <div className="p-3 border-b border-border flex items-start gap-2">
+      <div
+        className={`p-3 border-b border-border flex gap-2 ${
+          collapsed ? "flex-col items-center" : "items-start"
+        }`}
+      >
         {!collapsed ? (
           <div className="min-w-0 flex-1">
-            <Link to="/" className="text-sm font-bold block truncate">
-              Timeless Electronix
-            </Link>
-            <p className="text-text-secondary text-xs mt-0.5">Admin Panel</p>
+            <FullLogo linkToHome className="h-8 max-w-full" />
+            <p className="text-text-secondary text-xs mt-2">Admin Panel</p>
           </div>
         ) : (
-          <span className="sr-only">Timeless Electronix Admin</span>
+          <Link
+            to="/"
+            className="rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-green-accent"
+            title={COMPANY.name}
+          >
+            <FullLogo className="h-5" />
+            <span className="sr-only">{COMPANY.name} Admin</span>
+          </Link>
         )}
         <button
           type="button"

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { Lock } from "lucide-react";
 import { adminApiBase, setToken } from "../../lib/adminApi";
+import FullLogo from "../../components/FullLogo";
 
 export default function AdminLogin() {
   const [secret, setSecret] = useState("");
@@ -39,8 +39,8 @@ export default function AdminLogin() {
     <div className="min-h-screen bg-bg-primary flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 mx-auto bg-green-brand/20 rounded-full flex items-center justify-center mb-4">
-            <Lock size={28} className="text-green-accent" />
+          <div className="flex justify-center mb-6">
+            <FullLogo linkToHome className="h-14" />
           </div>
           <h1 className="text-2xl font-bold">Admin Access</h1>
           <p className="text-text-secondary text-sm mt-1">

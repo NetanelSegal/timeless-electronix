@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Phone, Mail, Printer, MessageCircle, Shield } from "lucide-react";
 import { COMPANY, NAV_LINKS } from "../lib/constants";
+import FullLogo from "./FullLogo";
 
 export default function Footer() {
   return (
@@ -9,18 +10,7 @@ export default function Footer() {
         <div className="grid md:grid-cols-3 gap-8">
           {/* Brand */}
           <div>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center">
-                <span className="text-green-brand font-extrabold text-xs text-center">
-                  TE
-                </span>
-              </div>
-              <span className="text-lg font-bold">
-                TIMELESS
-                <br />
-                <span className="text-sm font-normal">Electronix</span>
-              </span>
-            </div>
+            <FullLogo linkToHome className="h-10 sm:h-12 mb-4" />
             <p className="text-text-secondary text-sm mb-3">
               {COMPANY.tagline}
             </p>
