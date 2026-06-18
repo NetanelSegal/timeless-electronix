@@ -1,6 +1,7 @@
-import { Search, SlidersHorizontal, ArrowDownUp } from "lucide-react";
+import { Search, ArrowDownUp } from "lucide-react";
 import ProductCard from "../components/ProductCard";
 import Pagination from "../components/Pagination";
+import CatalogFilters from "../components/CatalogFilters";
 import {
   CATALOG_SORT_OPTIONS,
   useCatalog,
@@ -12,16 +13,23 @@ const CATALOG_PAGE_SIZE = 24;
 
 export default function Catalog() {
   const {
+    searchField,
     manufacturer,
+    minQty,
+    maxQty,
+    condition,
+    hasImages,
     page,
     sortPresetValue,
     searchInput,
     setSearchInput,
-    manufacturers,
+    filtersOpen,
+    setFiltersOpen,
     products,
     loading,
     handleSearch,
-    setMfg,
+    patchParams,
+    clearFilters,
     setSortPreset,
     goToPage,
   } = useCatalog();
@@ -83,59 +91,64 @@ export default function Catalog() {
       </section>
 
       <section className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center gap-3">
-              <SlidersHorizontal
-                size={16}
-                className="text-text-secondary shrink-0"
-                aria-hidden
-              />
-              <label htmlFor="catalog-mfg" className="text-text-secondary text-sm">
-                Filter
-              </label>
-              <select
-                id="catalog-mfg"
-                value={manufacturer}
-                onChange={(e) => setMfg(e.target.value)}
-                className="bg-bg-card border border-border text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-accent"
-              >
-                <option value="">All Manufacturers</option>
-                {manufacturers.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-center gap-3">
-              <ArrowDownUp
-                size={16}
-                className="text-text-secondary shrink-0"
-                aria-hidden
-              />
-              <label htmlFor="catalog-sort" className="text-text-secondary text-sm">
-                Sort by
-              </label>
-              <select
-                id="catalog-sort"
-                value={sortPresetValue}
-                onChange={(e) => setSortPreset(e.target.value)}
-                className="bg-bg-card border border-border text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-accent min-w-[12rem]"
-              >
-                {CATALOG_SORT_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <div className="flex items-center gap-3">
+            <ArrowDownUp
+              size={16}
+              className="text-text-secondary shrink-0"
+              aria-hidden
+            />
+            <label htmlFor="catalog-sort" className="text-text-secondary text-sm">
+              Sort by
+            </label>
+            <select
+              id="catalog-sort"
+              value={sortPresetValue}
+              onChange={(e) => setSortPreset(e.target.value)}
+              className="bg-bg-card border border-border text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-accent min-w-[12rem]"
+            >
+              {CATALOG_SORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
           </div>
           <span className="text-text-secondary text-sm">
             {loading
               ? "…"
               : rangeLabel ?? (products ? "0 results" : "…")}
           </span>
+        </div>
+
+        <div className="flex flex-wrap items-start gap-3 mb-6">
+          <div className="flex-1 min-w-[16rem]">
+            <CatalogFilters
+              searchField={searchField}
+              manufacturer={manufacturer}
+              minQty={minQty}
+              maxQty={maxQty}
+              condition={condition}
+              hasImages={hasImages}
+              open={filtersOpen}
+              onOpenChange={setFiltersOpen}
+              onPatch={patchParams}
+            />
+          </div>
+          {(searchField ||
+            manufacturer ||
+            minQty ||
+            maxQty ||
+            condition ||
+            hasImages) && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-sm text-text-secondary hover:text-white px-3 py-3 transition-colors"
+            >
+              Clear filters
+            </button>
+          )}
         </div>
 
         {loading ? (

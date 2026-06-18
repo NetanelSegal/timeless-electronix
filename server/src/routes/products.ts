@@ -2,9 +2,9 @@ import { Router } from 'express';
 import { Product } from '../models/Product.js';
 import {
   parsePageLimit,
-  buildSearchFilter,
   buildMongoSortSpec,
 } from '../utils/helpers.js';
+import { productListFilterFromQuery } from '../utils/productListFilter.js';
 import { serializeProduct } from '../utils/productImages.js';
 import { getProductBySeoSlug } from '../handlers/productBySlug.js';
 
@@ -22,21 +22,7 @@ router.get('/', async (req, res, next) => {
       return;
     }
     const { page, limit } = parsePageLimit(query, { limit: 24, maxLimit: 100 });
-    const manufacturer = query.manufacturer || '';
-
-    const filter: Record<string, unknown> = {
-      ...buildSearchFilter(query.search || '', [
-        'partNumber',
-        'manufacturer',
-        'description',
-        'productSummary',
-        'seoSlug',
-      ]),
-    };
-
-    if (manufacturer) {
-      filter.manufacturer = manufacturer;
-    }
+    const filter = productListFilterFromQuery(query, 'public');
 
     const sortSpec = buildMongoSortSpec(query, {
       allowlist: ['quantity', 'partNumber', 'manufacturer', 'updatedAt'],

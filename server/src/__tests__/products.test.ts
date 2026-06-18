@@ -81,6 +81,32 @@ describe("Products API", () => {
     expect(res.body.products[0].manufacturer).toBe("SAMSUNG");
   });
 
+  it("GET /api/products?searchField=partNumber scopes search", async () => {
+    const res = await request(app).get(
+      "/api/products?search=RC0402&searchField=partNumber",
+    );
+    expect(res.status).toBe(200);
+    expect(res.body.products).toHaveLength(1);
+    expect(res.body.products[0].partNumber).toBe("RC0402JR-074K7L");
+  });
+
+  it("GET /api/products?minQty= filters by minimum quantity", async () => {
+    const res = await request(app).get("/api/products?minQty=50000");
+    expect(res.status).toBe(200);
+    expect(res.body.products).toHaveLength(2);
+  });
+
+  it("GET /api/products?condition= filters by condition", async () => {
+    await Product.updateOne(
+      { partNumber: "RC0402JR-074K7L" },
+      { $set: { condition: "Used" } },
+    );
+    const res = await request(app).get("/api/products?condition=Used");
+    expect(res.status).toBe(200);
+    expect(res.body.products).toHaveLength(1);
+    expect(res.body.products[0].partNumber).toBe("RC0402JR-074K7L");
+  });
+
   it("GET /api/products/manufacturers returns distinct manufacturers", async () => {
     const res = await request(app).get("/api/products/manufacturers");
     expect(res.status).toBe(200);

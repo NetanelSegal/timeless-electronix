@@ -1,30 +1,82 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import Home from "./pages/Home";
 import Catalog from "./pages/Catalog";
-import ProductDetail from "./pages/ProductDetail";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
 import Quote from "./pages/Quote";
-import AdminLogin from "./pages/admin/AdminLogin";
-import AdminLayout from "./pages/admin/AdminLayout";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import AdminProducts from "./pages/admin/AdminProducts";
-import AdminMessages from "./pages/admin/AdminMessages";
-import AdminQuotes from "./pages/admin/AdminQuotes";
+
+const ProductDetail = lazy(() => import("./pages/ProductDetail"));
+const AdminLogin = lazy(() => import("./pages/admin/AdminLogin"));
+const AdminLayout = lazy(() => import("./pages/admin/AdminLayout"));
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const AdminProducts = lazy(() => import("./pages/admin/AdminProducts"));
+const AdminMessages = lazy(() => import("./pages/admin/AdminMessages"));
+const AdminQuotes = lazy(() => import("./pages/admin/AdminQuotes"));
+
+function RouteFallback() {
+  return (
+    <div className="flex-1 flex items-center justify-center py-24 text-text-secondary">
+      Loading…
+    </div>
+  );
+}
 
 export default function App() {
   return (
     <div className="min-h-screen flex flex-col">
       <Routes>
         {/* Admin routes — own layout, no public header/footer */}
-        <Route path="/admin/login" element={<AdminLogin />} />
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<AdminDashboard />} />
-          <Route path="products" element={<AdminProducts />} />
-          <Route path="messages" element={<AdminMessages />} />
-          <Route path="quotes" element={<AdminQuotes />} />
+        <Route
+          path="/admin/login"
+          element={
+            <Suspense fallback={<RouteFallback />}>
+              <AdminLogin />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <Suspense fallback={<RouteFallback />}>
+              <AdminLayout />
+            </Suspense>
+          }
+        >
+          <Route
+            index
+            element={
+              <Suspense fallback={<RouteFallback />}>
+                <AdminDashboard />
+              </Suspense>
+            }
+          />
+          <Route
+            path="products"
+            element={
+              <Suspense fallback={<RouteFallback />}>
+                <AdminProducts />
+              </Suspense>
+            }
+          />
+          <Route
+            path="messages"
+            element={
+              <Suspense fallback={<RouteFallback />}>
+                <AdminMessages />
+              </Suspense>
+            }
+          />
+          <Route
+            path="quotes"
+            element={
+              <Suspense fallback={<RouteFallback />}>
+                <AdminQuotes />
+              </Suspense>
+            }
+          />
         </Route>
 
         {/* Public routes */}
@@ -36,7 +88,14 @@ export default function App() {
               <main className="flex-1">
                 <Routes>
                   <Route path="/" element={<Home />} />
-                  <Route path="/catalog/:seoSlug" element={<ProductDetail />} />
+                  <Route
+                    path="/catalog/:seoSlug"
+                    element={
+                      <Suspense fallback={<RouteFallback />}>
+                        <ProductDetail />
+                      </Suspense>
+                    }
+                  />
                   <Route path="/catalog" element={<Catalog />} />
                   <Route path="/about" element={<About />} />
                   <Route path="/contact" element={<Contact />} />
