@@ -179,9 +179,9 @@ export default function About() {
       </section>
 
       {/* CTA */}
-      <section className="bg-green-brand/20 py-20 px-4">
+      <section className="bg-green-brand/10 py-20 px-4">
         <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-3xl font-bold mb-4">Ready to Work With Us?</h2>
+          <h2 className="text-3xl font-bold mb-4">Ready to Work With Us</h2>
           <p className="text-text-secondary text-lg mb-8">
             Browse our catalog or reach out to our sourcing experts today.
           </p>
