@@ -26,7 +26,7 @@
 - [ ] Product detail page (click through from catalog)
 - [ ] Email templates with React Email components (currently inline HTML)
 - [ ] Client-side tests (Vitest + React Testing Library)
-- [ ] CI/CD pipeline (GitHub Actions)
+- [x] **CI/CD pipeline (GitHub Actions)**: Lint + test on PR/push; deploy to Cloudways via API after CI passes on `main`, with post-deploy build script and Varnish purge
 - [ ] SEO meta tags per page
 - [ ] Image gallery for products with multiple images
 - [ ] Admin: bulk delete, export products

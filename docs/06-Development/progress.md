@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-06
+
+### CI/CD — GitHub Actions + Cloudways auto-deploy
+
+- Added [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml): `ci` job (lint + test), `deploy` job (Cloudways OAuth → git pull → Varnish purge) on `main` only.
+- Added [`scripts/deploy.sh`](../../scripts/deploy.sh) for Cloudways post-deployment hook (`npm install`, `npm run build`, PM2 restart).
+- Added [`ecosystem.config.cjs`](../../ecosystem.config.cjs) for the `timeless-api` Node process.
+- Documented secrets and one-time Cloudways setup in [`docs/06-Development/README.md`](README.md).
+
 ## 2026-06-18
 
 ### Bulk database update and enum enforcement of product status (condition)
