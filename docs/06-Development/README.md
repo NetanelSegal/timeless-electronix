@@ -95,13 +95,15 @@ Auto-deploy on push in Cloudways should stay **off** (you already have this). On
 
 1. **Deployment via Git** — connect `NetanelSegal/timeless-electronix`, branch `main`, deploy path = **repository root** (not `client/dist`).
 2. **Auto-deploy on push** — **disabled** (GitHub Actions handles deploy).
-3. **Post-deployment command** (runs from the deployed repo root):
+3. **Post-deployment command** (must run from the deployed repo root):
 
    ```bash
-   bash scripts/deploy.sh
+   cd /home/master/applications/<app-folder>/public_html && bash scripts/deploy.sh
    ```
 
-4. **`server/.env`** on the server with production values (copy from [`.env.example`](../../.env.example); never commit this file). Must exist **before** the first deploy build.
+   Replace `<app-folder>` with your Cloudways application folder name. After each deploy, check **`deploy.log`** in `public_html` for errors.
+
+4. **`server/.env`** on the server with production values (copy from [`.env.example`](../../.env.example); never commit this file). Must exist **before** the first deploy build — without it, `scripts/deploy.sh` exits and **UI will not rebuild**.
 5. **PM2** (first time only, SSH into the app after the first successful Git sync):
 
    ```bash
@@ -134,6 +136,39 @@ The dashboard shows server **name** and **IP**; the API needs the **numbers from
 4. Verify the site, `/api/products`, and that UI changes appear without a hard refresh.
 
 If the deploy job fails, open the failed step log. Common causes: wrong server/app ID, invalid API key, missing `server/.env`, or post-deploy command running before the full repo (not just `dist`) is on the server.
+
+### UI changes not appearing after deploy
+
+GitHub Actions only **pulls source** and purges Varnish. The live site updates only when **`scripts/deploy.sh` runs successfully** on the server (`npm run build` → writes `client/dist/`).
+
+**Symptom:** GitHub deploy job is green, but the site still serves an old JS bundle (e.g. `index-BuSsMTS1.js` in View Source instead of a new hash).
+
+**Check on the server (SSH):**
+
+```bash
+cd ~/applications/<app-folder>/public_html
+
+# Full monorepo present? (not just index.html + assets/)
+ls package.json client/src scripts/deploy.sh
+
+# Did post-deploy run?
+tail -50 deploy.log
+
+# Run build manually to see errors
+bash scripts/deploy.sh
+```
+
+**Common fixes:**
+
+| Problem | Fix |
+|--------|-----|
+| `public_html` only has `index.html` + `assets/` (no `client/src`) | Git deploy path must be **repo root**, not `client/dist`. Apache webroot = `client/dist`. |
+| `server/.env is missing` in `deploy.log` | Create `server/.env` on the server with production values |
+| Post-deploy command not set | Cloudways → Deployment via Git → add the `cd … && bash scripts/deploy.sh` command |
+| `pm2 not found` | `npm install -g pm2` then `pm2 start ecosystem.config.cjs && pm2 save` |
+| Build fails on sitemap | Ensure `MONGODB_URI` and `PUBLIC_SITE_URL` are set in `server/.env` |
+
+After a successful manual build, hard-refresh the browser (Ctrl+Shift+R) or purge Varnish in Cloudways.
 
 ### Optional: branch protection
 
