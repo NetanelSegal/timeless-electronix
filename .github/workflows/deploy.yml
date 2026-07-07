@@ -104,14 +104,17 @@ jobs:
 
       - name: Build and restart on server (SSH)
         uses: appleboy/ssh-action@v1.2.2
+        env:
+          APP_PATH: ${{ secrets.CLOUDWAYS_APP_PATH }}
         with:
           host: ${{ secrets.CLOUDWAYS_SSH_HOST }}
           username: ${{ secrets.CLOUDWAYS_SSH_USER }}
-          key: ${{ secrets.CLOUDWAYS_SSH_PRIVATE_KEY }}
-          script_stop: true
+          password: ${{ secrets.CLOUDWAYS_SSH_PASSWORD }}
+          port: 22
           command_timeout: 25m
+          envs: APP_PATH
           script: |
-            cd "${{ secrets.CLOUDWAYS_APP_PATH }}"
+            cd "$APP_PATH"
             bash scripts/deploy.sh
 
       - name: Purge Varnish cache

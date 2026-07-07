@@ -120,9 +120,11 @@ Add these under GitHub → **Settings** → **Secrets and variables** → **Acti
 | `CLOUDWAYS_SERVER_ID` | Server numeric ID in the dashboard URL |
 | `CLOUDWAYS_APP_ID` | Application numeric ID in the dashboard URL |
 | `CLOUDWAYS_SSH_HOST` | Server **public IP** (Server → Master Credentials) |
-| `CLOUDWAYS_SSH_USER` | SSH username (Master or Application credentials) |
-| `CLOUDWAYS_SSH_PRIVATE_KEY` | Full private key file contents |
+| `CLOUDWAYS_SSH_USER` | SSH username, e.g. `master_xxxxx` |
+| `CLOUDWAYS_SSH_PASSWORD` | SSH password (Master Credentials — **not** the public key file) |
 | `CLOUDWAYS_APP_PATH` | `public_html` path, e.g. `/home/1277679.cloudwaysapps.com/zumcgfttvy/public_html` |
+
+Use **password** auth unless you add a real **private** key (`-----BEGIN … PRIVATE KEY-----`). A line starting with `ssh-rsa AAAA…` is a **public** key and will fail with `no key found`.
 
 ### After secrets are added
 
