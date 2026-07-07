@@ -86,7 +86,7 @@ The Node API runs via PM2 from `server/` (port 3001). [`client/public/.htaccess`
 ### Flow
 
 1. **Pull request to `main`** — runs lint + tests only; no deploy.
-2. **Push/merge to `main`** — runs lint + tests, then triggers Cloudways git pull, post-deploy build, and Varnish cache purge.
+2. **Push/merge to `main`** — runs lint + tests, then Cloudways git pull, SSH `scripts/deploy.sh` (build + PM2 restart), and Varnish cache purge.
 3. **Manual redeploy** — GitHub → Actions → *Deploy to Cloudways* → *Run workflow*.
 
 Auto-deploy on push in Cloudways should stay **off** (you already have this). Only GitHub Actions triggers production deploys after CI passes.
@@ -95,16 +95,8 @@ Auto-deploy on push in Cloudways should stay **off** (you already have this). On
 
 1. **Deployment via Git** — connect `NetanelSegal/timeless-electronix`, branch `main`, deploy path = **repository root** (not `client/dist`).
 2. **Auto-deploy on push** — **disabled** (GitHub Actions handles deploy).
-3. **Post-deployment command** (must run from the deployed repo root):
-
-   ```bash
-   cd /home/master/applications/<app-folder>/public_html && bash scripts/deploy.sh
-   ```
-
-   Replace `<app-folder>` with your Cloudways application folder name. After each deploy, check **`deploy.log`** in `public_html` for errors.
-
-4. **`server/.env`** on the server with production values (copy from [`.env.example`](../../.env.example); never commit this file). Must exist **before** the first deploy build — without it, `scripts/deploy.sh` exits and **UI will not rebuild**.
-5. **PM2** (first time only, SSH into the app after the first successful Git sync):
+3. **`server/.env`** on the server with production values (copy from [`.env.example`](../../.env.example); never commit this file). Must exist **before** the first deploy build — without it, `scripts/deploy.sh` exits and **UI will not rebuild**.
+4. **PM2** (first time only, SSH into the app after the first successful Git sync):
 
    ```bash
    cd ~/applications/<app-folder>/public_html
@@ -113,7 +105,9 @@ Auto-deploy on push in Cloudways should stay **off** (you already have this). On
    pm2 save
    ```
 
-6. **Web root** — confirm Apache / application webroot points at **`client/dist`** (not the monorepo root).
+5. **Web root** — confirm Apache / application webroot points at **`client/dist`** (not the monorepo root).
+
+Cloudways Git has **no post-deploy script field**. The workflow runs `scripts/deploy.sh` over **SSH** after git pull.
 
 ### GitHub repository secrets
 
@@ -123,23 +117,25 @@ Add these under GitHub → **Settings** → **Secrets and variables** → **Acti
 |--------|------------------|
 | `CLOUDWAYS_EMAIL` | Your Cloudways login email |
 | `CLOUDWAYS_API_KEY` | Cloudways → account menu (⋮) → **API** |
-| `CLOUDWAYS_SERVER_ID` | Open your **server** in the dashboard — numeric ID in the URL, e.g. `…/server/1234567` |
-| `CLOUDWAYS_APP_ID` | Open your **application** — numeric ID in the URL, e.g. `…/apps/7654321` or `…/application/7654321` |
-
-The dashboard shows server **name** and **IP**; the API needs the **numbers from the URL**.
+| `CLOUDWAYS_SERVER_ID` | Server numeric ID in the dashboard URL |
+| `CLOUDWAYS_APP_ID` | Application numeric ID in the dashboard URL |
+| `CLOUDWAYS_SSH_HOST` | Server **public IP** (Server → Master Credentials) |
+| `CLOUDWAYS_SSH_USER` | SSH username (Master or Application credentials) |
+| `CLOUDWAYS_SSH_PRIVATE_KEY` | Full private key file contents |
+| `CLOUDWAYS_APP_PATH` | `public_html` path, e.g. `/home/1277679.cloudwaysapps.com/zumcgfttvy/public_html` |
 
 ### After secrets are added
 
 1. **Commit and push** the CI/CD files to `main` (`.github/workflows/deploy.yml`, `scripts/deploy.sh`, `ecosystem.config.cjs`).
 2. Open GitHub → **Actions** → *Deploy to Cloudways* and confirm the **Lint and test** job passes.
-3. On success, the **Deploy** job runs: Cloudways git pull → `scripts/deploy.sh` on server → Varnish purge.
+3. On success, the **Deploy** job runs: Cloudways git pull → SSH `scripts/deploy.sh` → Varnish purge.
 4. Verify the site, `/api/products`, and that UI changes appear without a hard refresh.
 
-If the deploy job fails, open the failed step log. Common causes: wrong server/app ID, invalid API key, missing `server/.env`, or post-deploy command running before the full repo (not just `dist`) is on the server.
+If the deploy job fails, open the failed step log. Common causes: wrong server/app ID, invalid API key, missing `server/.env`, or missing SSH secrets.
 
 ### UI changes not appearing after deploy
 
-GitHub Actions only **pulls source** and purges Varnish. The live site updates only when **`scripts/deploy.sh` runs successfully** on the server (`npm run build` → writes `client/dist/`).
+The live site updates only when the workflow’s **SSH step** runs **`scripts/deploy.sh` successfully** (`npm run build` → writes `client/dist/`).
 
 **Symptom:** GitHub deploy job is green, but the site still serves an old JS bundle (e.g. `index-BuSsMTS1.js` in View Source instead of a new hash).
 
@@ -164,7 +160,7 @@ bash scripts/deploy.sh
 |--------|-----|
 | `public_html` only has `index.html` + `assets/` (no `client/src`) | Git deploy path must be **repo root**, not `client/dist`. Apache webroot = `client/dist`. |
 | `server/.env is missing` in `deploy.log` | Create `server/.env` on the server with production values |
-| Post-deploy command not set | Cloudways → Deployment via Git → add the `cd … && bash scripts/deploy.sh` command |
+| SSH deploy step fails | Add `CLOUDWAYS_SSH_*` secrets; confirm `CLOUDWAYS_APP_PATH` matches `public_html` |
 | `pm2 not found` | `npm install -g pm2` then `pm2 start ecosystem.config.cjs && pm2 save` |
 | Build fails on sitemap | Ensure `MONGODB_URI` and `PUBLIC_SITE_URL` are set in `server/.env` |
 

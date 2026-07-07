@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: ci
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
       - name: Authenticate with Cloudways
@@ -99,8 +99,20 @@ jobs:
             *) exit 1 ;;
           esac
 
-      - name: Wait for post-deploy build
-        run: sleep 120
+      - name: Wait for git sync
+        run: sleep 30
+
+      - name: Build and restart on server (SSH)
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.CLOUDWAYS_SSH_HOST }}
+          username: ${{ secrets.CLOUDWAYS_SSH_USER }}
+          key: ${{ secrets.CLOUDWAYS_SSH_PRIVATE_KEY }}
+          script_stop: true
+          command_timeout: 25m
+          script: |
+            cd "${{ secrets.CLOUDWAYS_APP_PATH }}"
+            bash scripts/deploy.sh
 
       - name: Purge Varnish cache
         env:

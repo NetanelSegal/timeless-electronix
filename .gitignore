@@ -15,3 +15,5 @@ server/products_export*.xlsx
 server/products_export*.xlsx.bak
 server/timeless-electronix.products.json
 server/final_products_ready.csv
+
+cloudways-ssh-*
