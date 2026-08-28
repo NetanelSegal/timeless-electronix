@@ -176,6 +176,14 @@ that Apache answers on its own.
 - The slug charset is matched explicitly in the rules (`[a-z0-9-]`, the same
   constraint the prerender validates), so a request that could never have been
   prerendered falls through to the SPA shell rather than 404-ing.
+- **Cloudways serves existing static files from nginx, without consulting
+  `.htaccess`.** Confirmed in production: a direct `/_parts/<slug>.html` hit
+  returns `Server: nginx` with a one-year `Cache-Control` and never reaches
+  mod_rewrite, so rule 4b cannot 404 it. Only paths with no file on disk fall
+  through to Apache — which is exactly how `/catalog/<slug>` reaches rule 3.
+  `Disallow: /_parts/` in `robots.txt` is therefore the effective control on
+  the shells; rule 4b stays as defence in depth. **Anything that must be
+  enforced on an existing file cannot be enforced from `.htaccess` here.**
 - `ErrorDocument 404 /index.html` makes the 404 body the SPA shell, so the
   styled "Product not found" page (which carries `noindex`) still renders —
   under a 404 status instead of 200.

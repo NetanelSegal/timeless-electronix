@@ -1,5 +1,11 @@
 User-agent: *
 Disallow: /admin
 
+# Build-time SPA shells behind /catalog/<slug>. Cloudways' nginx serves
+# existing static files without consulting .htaccess, so the rewrite rule that
+# 404s direct hits cannot reach them — robots is the effective control. They
+# carry no unique content and nothing links to them.
+Disallow: /_parts/
+
 # Static sitemap (generated at build time, same as this file).
 Sitemap: https://timeless-electronix.com/sitemap.xml
