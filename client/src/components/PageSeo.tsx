@@ -7,9 +7,21 @@ interface Props {
   description: string;
   path: string;
   ogImage?: string;
+  /**
+   * Keep the page out of the index. Used for states that carry no real
+   * content (a missing product, a backend failure) so search engines drop
+   * the URL instead of recording it as a soft 404.
+   */
+  noindex?: boolean;
 }
 
-export default function PageSeo({ title, description, path, ogImage }: Props) {
+export default function PageSeo({
+  title,
+  description,
+  path,
+  ogImage,
+  noindex,
+}: Props) {
   const canonical = absoluteUrl(path);
   const brand = COMPANY.name;
   const fullTitle = title.includes(brand) ? title : `${title} | ${brand}`;
@@ -18,6 +30,7 @@ export default function PageSeo({ title, description, path, ogImage }: Props) {
     <Helmet>
       <title>{fullTitle}</title>
       <meta name="description" content={description} />
+      {noindex ? <meta name="robots" content="noindex, follow" /> : null}
       {canonical.startsWith("http") ? (
         <link rel="canonical" href={canonical} />
       ) : null}

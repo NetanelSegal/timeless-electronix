@@ -36,18 +36,23 @@ npm install
 npm install --prefix client
 npm install --prefix server
 
-echo "deploy: building client..."
-npm run build --prefix client
-
 echo "deploy: building server..."
 npm run build --prefix server
 
+# Must run BEFORE the client build: buildSitemap writes client/public/sitemap.xml,
+# and only `vite build` copies client/public/ into client/dist/ (the web root).
+# Generating it afterwards leaves the previous deploy's sitemap live.
 echo "deploy: building sitemap..."
 if npm run build:sitemap --prefix server; then
-  node scripts/verify-sitemap.js
+  echo "deploy: sitemap generated"
 else
-  echo "deploy: WARNING sitemap build failed; client and server builds are still deployed"
+  echo "deploy: WARNING sitemap build failed; deploying with the previous sitemap"
 fi
+
+echo "deploy: building client..."
+npm run build --prefix client
+
+node scripts/verify-sitemap.js
 
 echo "deploy: restarting API..."
 if command -v pm2 >/dev/null 2>&1; then
@@ -56,8 +61,54 @@ if command -v pm2 >/dev/null 2>&1; then
   else
     pm2 start ecosystem.config.cjs
   fi
+  pm2 save || echo "deploy: WARNING pm2 save failed; API may not survive a reboot"
 else
   echo "deploy: WARNING pm2 not found; install with: npm install -g pm2"
+fi
+
+# Fail the deploy if the API is not actually serving. Without this a dead
+# backend goes unnoticed while Apache serves 503 for every /api/* request,
+# which renders the whole catalog as soft 404s to search engines.
+echo "deploy: waiting for API health..."
+health_url="http://127.0.0.1:${API_PORT:-3001}/api/health"
+
+# curl is not guaranteed on the host; fall back to node, which is present
+# because we just built with it. Never fail the deploy over a missing tool.
+probe_health() {
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsS --max-time 5 "$health_url" >/dev/null 2>&1
+  elif command -v wget >/dev/null 2>&1; then
+    wget -q -T 5 -O /dev/null "$health_url" >/dev/null 2>&1
+  else
+    node -e '
+      const http = require("http");
+      const req = http.get(process.argv[1], (res) => {
+        res.resume();
+        process.exit(res.statusCode === 200 ? 0 : 1);
+      });
+      req.setTimeout(5000, () => { req.destroy(); process.exit(1); });
+      req.on("error", () => process.exit(1));
+    ' "$health_url" >/dev/null 2>&1
+  fi
+}
+
+attempt=0
+healthy=0
+while [ "$attempt" -lt 30 ]; do
+  attempt=$((attempt + 1))
+  if probe_health; then
+    echo "deploy: API healthy after ${attempt} attempt(s)"
+    healthy=1
+    break
+  fi
+  sleep 2
+done
+
+if [ "$healthy" != "1" ]; then
+  echo "deploy: ERROR API did not become healthy at $health_url"
+  echo "deploy: last 40 lines of pm2 logs:"
+  pm2 logs timeless-api --lines 40 --nostream 2>&1 || true
+  exit 1
 fi
 
 echo "deploy: finished at $(date -Is)"

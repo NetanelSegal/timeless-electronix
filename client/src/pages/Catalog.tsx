@@ -27,11 +27,13 @@ export default function Catalog() {
     setFiltersOpen,
     products,
     loading,
+    loadError,
     handleSearch,
     patchParams,
     clearFilters,
     setSortPreset,
     goToPage,
+    pageHref,
   } = useCatalog();
 
   const rangeLabel =
@@ -49,6 +51,7 @@ export default function Catalog() {
         title="Product Catalog"
         description={`Search ${COMPANY.name}'s inventory of electronic components by part number or manufacturer. Request quotes for hard-to-find and military-grade parts.`}
         path="/catalog"
+        noindex={loadError}
       />
       <section className="bg-bg-secondary border-b border-border py-12 px-4">
         <div className="max-w-7xl mx-auto">
@@ -155,6 +158,13 @@ export default function Catalog() {
           <div className="text-center py-20 text-text-secondary">
             Loading components...
           </div>
+        ) : loadError ? (
+          <div className="text-center py-20 text-text-secondary">
+            <p className="mb-2">The catalog is temporarily unavailable.</p>
+            <p className="text-sm">
+              Please refresh the page or try again in a moment.
+            </p>
+          </div>
         ) : products && products.products.length > 0 ? (
           <>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -164,7 +174,12 @@ export default function Catalog() {
             </div>
 
             <div className="mt-10">
-              <Pagination page={page} totalPages={products.totalPages} onPageChange={goToPage} />
+              <Pagination
+                page={page}
+                totalPages={products.totalPages}
+                onPageChange={goToPage}
+                hrefForPage={pageHref}
+              />
             </div>
           </>
         ) : (

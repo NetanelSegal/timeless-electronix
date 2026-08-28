@@ -36,6 +36,7 @@ export function useCatalog() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState<ProductsResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const search = searchParams.get("search") || "";
@@ -62,6 +63,7 @@ export function useCatalog() {
 
   useEffect(() => {
     setLoading(true);
+    setLoadError(false);
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     if (searchField) params.set("searchField", searchField);
@@ -78,7 +80,13 @@ export function useCatalog() {
     api
       .get<ProductsResponse>(`/products?${params}`)
       .then(setProducts)
-      .catch(console.error)
+      // A failed list request must not fall through to the "no matches"
+      // empty state: that renders as a soft 404 for crawlers.
+      .catch((err: unknown) => {
+        console.error(err);
+        setProducts(null);
+        setLoadError(true);
+      })
       .finally(() => setLoading(false));
   }, [
     search,
@@ -161,6 +169,13 @@ export function useCatalog() {
     setSearchParams(next, { replace: true });
   };
 
+  /** URL for a catalog page, preserving the active filters and sort. */
+  const pageHref = (p: number) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("page", String(p));
+    return `/catalog?${next}`;
+  };
+
   const goToPage = (p: number) => {
     const next = new URLSearchParams(searchParams);
     next.set("page", String(p));
@@ -184,10 +199,12 @@ export function useCatalog() {
     setFiltersOpen,
     products,
     loading,
+    loadError,
     handleSearch,
     patchParams,
     clearFilters,
     setSortPreset,
     goToPage,
+    pageHref,
   };
 }

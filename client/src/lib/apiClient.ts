@@ -1,3 +1,18 @@
+/**
+ * Error from a non-2xx API response. `status` lets callers tell a genuine
+ * "not found" apart from a backend/network failure, which must never be
+ * rendered as a 404-style page (search engines log those as soft 404s).
+ */
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
 interface ApiClientOptions {
   getHeaders?: () => Record<string, string>;
   onUnauthorized?: () => void;
@@ -23,10 +38,11 @@ export function createApiClient(base: string, options: ApiClientOptions = {}) {
         error?: unknown;
       };
       const msg = body.error;
-      throw new Error(
+      throw new ApiError(
         typeof msg === "string" && msg
           ? msg
           : `Request failed: ${res.status}`,
+        res.status,
       );
     }
     return res.json() as Promise<T>;
@@ -53,10 +69,11 @@ export function createApiClient(base: string, options: ApiClientOptions = {}) {
         error?: unknown;
       };
       const msg = body.error;
-      throw new Error(
+      throw new ApiError(
         typeof msg === "string" && msg
           ? msg
           : `Upload failed: ${res.status}`,
+        res.status,
       );
     }
     return res.json() as Promise<T>;
