@@ -3,6 +3,7 @@ import { Link, Navigate, useParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { ArrowLeft, Package, ShoppingCart, Check } from "lucide-react";
 import { api } from "../lib/api";
+import { ApiError } from "../lib/apiClient";
 import type { Product } from "../lib/types";
 import { absoluteUrl } from "../lib/siteUrl";
 import { COMPANY } from "../lib/constants";
@@ -70,6 +71,7 @@ export default function ProductDetail() {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [addQty, setAddQty] = useState(1);
 
@@ -96,13 +98,22 @@ export default function ProductDetail() {
     setProduct(null);
     setLoading(true);
     setNotFound(false);
+    setLoadError(false);
     api
       .get<Product>(`/products?seoSlug=${encodeURIComponent(seoSlug)}`)
       .then((p) => {
         if (!cancelled) setProduct(p);
       })
-      .catch(() => {
-        if (!cancelled) setNotFound(true);
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        // Only a real 404 means the part is gone. A 5xx or a network failure
+        // must not render as "not found" — that would turn every minute of
+        // backend downtime into thousands of soft 404s in search results.
+        if (err instanceof ApiError && err.status === 404) {
+          setNotFound(true);
+        } else {
+          setLoadError(true);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -133,9 +144,47 @@ export default function ProductDetail() {
           title="Product details"
           description={`${COMPANY.name} electronic components catalog.`}
           path={path}
+          noindex
         />
         <section className="max-w-4xl mx-auto px-4 py-20 text-text-secondary text-center">
           Loading product…
+        </section>
+      </>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <>
+        <PageSeo
+          title="Product temporarily unavailable"
+          description={`${COMPANY.name} electronic components catalog.`}
+          path={path}
+          noindex
+        />
+        <section className="max-w-4xl mx-auto px-4 py-20 text-center">
+          <h1 className="text-2xl font-bold text-white mb-4">
+            Product temporarily unavailable
+          </h1>
+          <p className="text-text-secondary mb-8">
+            We could not load this part right now. Please refresh the page or
+            try again in a moment.
+          </p>
+          <div className="flex items-center justify-center gap-6">
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center gap-2 text-green-accent font-medium hover:underline"
+            >
+              Try again
+            </button>
+            <Link
+              to="/catalog"
+              className="inline-flex items-center gap-2 text-green-accent font-medium hover:underline"
+            >
+              <ArrowLeft size={18} /> Back to catalog
+            </Link>
+          </div>
         </section>
       </>
     );
@@ -148,6 +197,7 @@ export default function ProductDetail() {
           title="Product not found"
           description="This part is not in our catalog or the link is invalid."
           path={path}
+          noindex
         />
         <section className="max-w-4xl mx-auto px-4 py-20 text-center">
           <h1 className="text-2xl font-bold text-white mb-4">

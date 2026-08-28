@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { env } from './config/env.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { isDbConnected } from './config/db.js';
 import productRoutes from './routes/products.js';
 import contactRoutes from './routes/contact.js';
 import quoteRoutes from './routes/quotes.js';
@@ -20,7 +21,11 @@ app.use('/api/quotes', quoteRoutes);
 app.use('/api/admin', adminRoutes);
 
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok' });
+  const db = isDbConnected();
+  res.status(db ? 200 : 503).json({
+    status: db ? 'ok' : 'degraded',
+    db: db ? 'connected' : 'disconnected',
+  });
 });
 
 app.use(errorHandler);
