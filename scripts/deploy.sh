@@ -52,6 +52,18 @@ fi
 echo "deploy: building client..."
 npm run build --prefix client
 
+# Must run AFTER the client build: it writes into client/dist, which
+# `vite build` empties. One flat shell per existing product slug is what lets
+# Apache return a real 404 for a part that does not exist (see .htaccess).
+# A failure here writes no marker, so the .htaccess rule stays dormant and the
+# SPA shell keeps being served -- never fail the deploy over it.
+echo "deploy: prerendering product shells..."
+if npm run build:prerender --prefix server; then
+  echo "deploy: product shells generated"
+else
+  echo "deploy: WARNING prerender failed; /catalog/<slug> keeps serving the SPA shell under 200"
+fi
+
 node scripts/verify-sitemap.js
 
 echo "deploy: restarting API..."

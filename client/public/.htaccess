@@ -11,10 +11,37 @@
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule ^(.+)/$ https://%{HTTP_HOST}/$1 [R=301,L]
 
-    # 3. SPA Fallback: Serve the static file if it exists
+    # 3. Product detail pages are prerendered at build time as
+    #    catalog/<slug>.html — one flat file per part that actually exists
+    #    (flat, not a directory, so mod_dir cannot re-add the trailing slash
+    #    that rule 2 just stripped). Serving them from disk lets Apache answer
+    #    with a truthful status without consulting Node.
+    RewriteCond %{REQUEST_FILENAME}.html -f
+    RewriteRule ^catalog/([^/]+)$ /catalog/$1.html [L]
+
+    # 4. Unknown part number: a real 404 instead of the SPA shell under HTTP
+    #    200, which is exactly what Google classifies as a soft 404.
+    #    Gated on the prerender marker: a deploy that could not reach the
+    #    database writes no marker, so this rule goes dormant and rule 5 keeps
+    #    serving the shell rather than 404-ing all 18k product pages.
+    RewriteCond %{DOCUMENT_ROOT}/catalog/.prerendered -f
+    RewriteCond %{REQUEST_FILENAME}.html !-f
+    RewriteRule ^catalog/([^/]+)$ - [R=404,L]
+
+    # 5. SPA Fallback: Serve the static file if it exists
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
 
-    # 4. If it's not a static file and not an API request, serve index.html
+    # 6. If it's not a static file and not an API request, serve index.html
     RewriteRule ^ index.html [QSA,L]
 </IfModule>
+
+# The 404 body is the SPA shell, so a missing part still renders the styled
+# "Product not found" page (which carries noindex) — but under a 404 status
+# instead of 200. Only rule 4 above reaches this.
+ErrorDocument 404 /index.html
+
+# The prerender marker is bookkeeping, not content.
+<Files ".prerendered">
+    Require all denied
+</Files>
