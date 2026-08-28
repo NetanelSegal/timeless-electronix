@@ -48,9 +48,13 @@ export default function Catalog() {
   return (
     <>
       <PageSeo
-        title="Product Catalog"
+        title={page > 1 ? `Product Catalog — page ${page}` : "Product Catalog"}
         description={`Search ${COMPANY.name}'s inventory of electronic components by part number or manufacturer. Request quotes for hard-to-find and military-grade parts.`}
-        path="/catalog"
+        // Each page of the series canonicalises to itself. Pointing them all
+        // at /catalog would collapse the series and undo the crawlable
+        // pagination below. Filter params are deliberately dropped so filtered
+        // permutations consolidate onto the plain paginated URL.
+        path={page > 1 ? `/catalog?page=${page}` : "/catalog"}
         noindex={loadError}
       />
       <section className="bg-bg-secondary border-b border-border py-12 px-4">
