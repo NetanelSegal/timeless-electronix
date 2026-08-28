@@ -113,10 +113,20 @@ export function useCatalog() {
   const patchParams = useCallback(
     (patch: Record<string, string | undefined>) => {
       const next = new URLSearchParams(searchParams);
+      let changed = false;
       for (const [key, val] of Object.entries(patch)) {
-        if (val) next.set(key, val);
+        const current = next.get(key) ?? undefined;
+        const value = val || undefined;
+        if (current === value) continue;
+        changed = true;
+        if (value) next.set(key, value);
         else next.delete(key);
       }
+      // A patch that changes nothing must not reset the page. The filter
+      // inputs fire one debounced patch on mount, which would otherwise knock
+      // every direct load of /catalog?page=N back to page 1 — including for
+      // crawlers walking the paginated series.
+      if (!changed) return;
       next.set("page", "1");
       setSearchParams(next, { replace: true });
     },
