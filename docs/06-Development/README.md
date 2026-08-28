@@ -99,7 +99,7 @@ Auto-deploy on push in Cloudways should stay **off** (you already have this). On
 | `npm run build --prefix server` | TypeScript → `server/dist` |
 | `npm run build:sitemap --prefix server` | **Before** the client build: writes `client/public/sitemap.xml`, which only `vite build` copies into the web root. Warns and continues on failure (keeps the previous sitemap). |
 | `npm run build --prefix client` | `vite build` — **empties `client/dist`** |
-| `npm run build:prerender --prefix server` | **After** the client build: writes one flat `client/dist/catalog/<slug>.html` per existing product, plus the `.prerendered` marker. Warns and continues on failure. |
+| `npm run build:prerender --prefix server` | **After** the client build: writes one flat `client/dist/_parts/<slug>.html` per existing product, plus the `.prerendered` marker. Warns and continues on failure. |
 | `node scripts/verify-sitemap.js` | Fails the deploy if `client/dist/sitemap.xml` is missing |
 | `pm2 restart` + health gate | Polls `/api/health` up to 30× (curl → wget → node fallback); dumps pm2 logs and **fails the deploy** if the API never comes up |
 

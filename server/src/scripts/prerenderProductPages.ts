@@ -18,7 +18,14 @@ const repoRoot = path.resolve(
  */
 const clientDist = path.join(repoRoot, "client", "dist");
 export const shellPath = path.join(clientDist, "index.html");
-export const catalogDir = path.join(clientDist, "catalog");
+/**
+ * Deliberately NOT client/dist/catalog: that directory name collides with the
+ * /catalog SPA route. A real directory there makes mod_dir 301 /catalog to
+ * /catalog/, which the trailing-slash rule strips straight back — an infinite
+ * redirect on the catalog page — and makes the rewrite target re-match the
+ * product rule on the next pass. _parts is not a route, so neither happens.
+ */
+export const outDir = path.join(clientDist, "_parts");
 
 async function* productSlugs(): AsyncGenerator<string> {
   const cursor = Product.find(
@@ -36,11 +43,11 @@ async function main() {
   console.log("prerender: connecting to MongoDB...");
   await mongoose.connect(env.MONGODB_URI);
   const { written, skipped } = await prerenderProductShells({
-    catalogDir,
+    outDir,
     shellPath,
     slugs: productSlugs(),
   });
-  console.log(`prerender: wrote ${written} product shells to ${catalogDir}`);
+  console.log(`prerender: wrote ${written} product shells to ${outDir}`);
   if (skipped > 0) {
     console.warn(`prerender: skipped ${skipped} row(s) with an unsafe seoSlug`);
   }

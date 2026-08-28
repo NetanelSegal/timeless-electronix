@@ -12,21 +12,32 @@
     RewriteRule ^(.+)/$ https://%{HTTP_HOST}/$1 [R=301,L]
 
     # 3. Product detail pages are prerendered at build time as
-    #    catalog/<slug>.html — one flat file per part that actually exists
-    #    (flat, not a directory, so mod_dir cannot re-add the trailing slash
-    #    that rule 2 just stripped). Serving them from disk lets Apache answer
-    #    with a truthful status without consulting Node.
-    RewriteCond %{REQUEST_FILENAME}.html -f
-    RewriteRule ^catalog/([^/]+)$ /catalog/$1.html [L]
+    #    _parts/<slug>.html — one flat file per part that actually exists.
+    #    The files live outside the /catalog namespace on purpose: a real
+    #    "catalog" directory would make mod_dir redirect /catalog to /catalog/,
+    #    which rule 2 strips back, looping forever.
+    #    The slug charset is matched explicitly ([a-z0-9-], the same constraint
+    #    the prerender validates) so the rewritten _parts/<slug>.html cannot
+    #    re-enter this rule on the next pass and fall through to rule 4.
+    RewriteCond %{DOCUMENT_ROOT}/_parts/$1.html -f
+    RewriteRule ^catalog/([a-z0-9-]+)$ /_parts/$1.html [L]
 
     # 4. Unknown part number: a real 404 instead of the SPA shell under HTTP
     #    200, which is exactly what Google classifies as a soft 404.
     #    Gated on the prerender marker: a deploy that could not reach the
-    #    database writes no marker, so this rule goes dormant and rule 5 keeps
-    #    serving the shell rather than 404-ing all 18k product pages.
-    RewriteCond %{DOCUMENT_ROOT}/catalog/.prerendered -f
-    RewriteCond %{REQUEST_FILENAME}.html !-f
-    RewriteRule ^catalog/([^/]+)$ - [R=404,L]
+    #    database (or a DOCUMENT_ROOT this rule cannot resolve) writes no
+    #    marker, so this rule goes dormant and rule 5 keeps serving the shell
+    #    rather than 404-ing every product page.
+    RewriteCond %{DOCUMENT_ROOT}/_parts/.prerendered -f
+    RewriteCond %{DOCUMENT_ROOT}/_parts/$1.html !-f
+    RewriteRule ^catalog/([a-z0-9-]+)$ - [R=404,L]
+
+    # 4b. The prerendered shells are an implementation detail reachable only
+    #     through rule 3. THE_REQUEST is the original request line and is not
+    #     rewritten, so this blocks direct hits without touching rule 3's
+    #     internal rewrite — no duplicate URL for the same page.
+    RewriteCond %{THE_REQUEST} \s/_parts/ [NC]
+    RewriteRule ^ - [R=404,L]
 
     # 5. SPA Fallback: Serve the static file if it exists
     RewriteCond %{REQUEST_FILENAME} !-f
@@ -45,3 +56,6 @@ ErrorDocument 404 /index.html
 <Files ".prerendered">
     Require all denied
 </Files>
+
+# No directory listing for the prerendered shells.
+Options -Indexes

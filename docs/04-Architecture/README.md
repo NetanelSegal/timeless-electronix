@@ -145,8 +145,9 @@ Apache rule order in [`client/public/.htaccess`](../../client/public/.htaccess):
 |---|------|---------|
 | 1 | `^api/(.*)` → `127.0.0.1:3001` | Proxy the API (`[P]`) |
 | 2 | `^(.+)/$` → https, 301 | One URL per page; explicit https because TLS terminates upstream |
-| 3 | `^catalog/([^/]+)$` → `catalog/$1.html` if it exists | Serve a prerendered product shell (200) |
-| 4 | `^catalog/([^/]+)$` → 404, if `.prerendered` exists and the shell does not | A part that does not exist gets a real 404 |
+| 3 | `^catalog/([a-z0-9-]+)$` → `_parts/$1.html` if it exists | Serve a prerendered product shell (200) |
+| 4 | `^catalog/([a-z0-9-]+)$` → 404, if `.prerendered` exists and the shell does not | A part that does not exist gets a real 404 |
+| 4b | direct `/_parts/…` → 404 | The shells are reachable only through rule 3, so there is no duplicate URL |
 | 5–6 | anything else not a file → `index.html` | SPA fallback (200) |
 
 **Why a prerender rather than server-side rendering.** A crawler asking for a
@@ -155,7 +156,7 @@ of the 18.8K slugs are real without asking something. Routing the SPA fallback
 through Express would answer that — at the cost of making every page depend on
 Node + Mongo (the failure mode above), injecting unsanitised product fields
 into HTML, and running a database query per crawl. Instead the build writes one
-flat `catalog/<slug>.html` per existing product (hard links to the shell, so
+flat `_parts/<slug>.html` per existing product (hard links to the shell, so
 ~one inode's worth of data), turning the question into a file-existence test
 that Apache answers on its own.
 
@@ -165,15 +166,24 @@ that Apache answers on its own.
 - Slugs become filenames, so they are **validated** (`isValidSeoSlug`) rather
   than sanitised, with a resolved-dirname check behind it. Legacy and
   CSV-imported rows bypass the admin zod schema.
-- Files are flat, not directories, so `mod_dir`'s `DirectorySlash` cannot
-  re-add the trailing slash that rule 2 strips.
+- **The shells live in `_parts/`, not `catalog/`.** A real `catalog` directory
+  in the web root collides with the `/catalog` route: `mod_dir` redirects
+  `/catalog` → `/catalog/`, rule 2 strips the slash back, and the catalog page
+  redirects forever. Keeping them out of the route namespace also means the
+  rewritten target cannot re-match rule 3 on the next pass and fall through to
+  the 404 in rule 4. Both were shipped and caught in production on 2026-08-28;
+  see `progress.md`.
+- The slug charset is matched explicitly in the rules (`[a-z0-9-]`, the same
+  constraint the prerender validates), so a request that could never have been
+  prerendered falls through to the SPA shell rather than 404-ing.
 - `ErrorDocument 404 /index.html` makes the 404 body the SPA shell, so the
   styled "Product not found" page (which carries `noindex`) still renders —
   under a 404 status instead of 200.
 - **Fail-safe**: rule 4 is gated on the `.prerendered` marker, written only
-  after the full slug set is emitted. A deploy that cannot reach the database
-  writes no marker, the rule goes dormant, and the SPA shell is served as
-  before. A failed prerender can never 404 the whole catalog.
+  after the full slug set is emitted. A deploy that cannot reach the database —
+  or a `DOCUMENT_ROOT` the rule cannot resolve — writes no marker, the rule
+  goes dormant, and the SPA shell is served as before. A failed prerender can
+  never 404 the whole catalog.
 
 Build order matters: `build:sitemap` runs **before** `vite build` (it writes to
 `client/public/`, which Vite copies into the web root), and `build:prerender`

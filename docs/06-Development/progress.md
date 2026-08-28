@@ -112,6 +112,40 @@ work.
   cover the happy path, traversal slugs, out-of-charset slugs, the marker
   ordering, a missing shell, and replacement of stale shells.
 
+#### Shipped broken, caught in production, fixed forward
+
+The first deploy of the above put the shells in `client/dist/catalog/`. Both
+of the resulting bugs came from that one choice — the directory name collides
+with the `/catalog` route:
+
+1. **Every product page returned 404.** Rule 3 rewrote `/catalog/<slug>` to
+   `/catalog/<slug>.html`; the per-directory rewrite then restarts, the
+   rewritten path still matched `^catalog/([^/]+)$`, its `.html.html` existence
+   check failed, and rule 4 answered 404. The shells themselves were fine —
+   `/catalog/<slug>.html` served 200 directly.
+2. **The catalog page redirect-looped.** With a real `catalog` directory in the
+   web root, `mod_dir`'s `DirectorySlash` redirected `/catalog` → `/catalog/`,
+   and rule 2 stripped it straight back — over http, so with a downgrade hop
+   each time.
+
+The `.prerendered` fail-safe did not cover either: it guards against the
+prerender *not running*, not against the rewrite rules being wrong. The
+`.htaccess` is the one artefact that cannot be exercised locally — there is no
+Apache in the dev environment — so it was verified only after deploy, which is
+where both showed up.
+
+Fix: write the shells to `client/dist/_parts/`, outside the route namespace.
+The rewrite target no longer re-matches rule 3, and no `catalog` directory
+exists, so `/catalog` behaves exactly as it did before. The rules now also
+match the slug charset explicitly (`[a-z0-9-]`), so anything that could never
+have been prerendered falls through to the SPA shell instead of 404-ing, and
+rule 4b returns 404 for direct `/_parts/…` hits so the shells do not become a
+second URL for the same page.
+
+The prerender wrote **18,314** shells and skipped **522** rows whose `seoSlug`
+is outside `[a-z0-9-]`. Those parts keep serving the SPA shell under 200 —
+tracked in [`tasks.md`](tasks.md).
+
 ## 2026-07-06
 
 ### CI/CD — GitHub Actions + Cloudways auto-deploy

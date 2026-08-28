@@ -34,20 +34,24 @@ function linkOrCopy(source: string, target: string): void {
  * /catalog/<slug> from disk: a hit is a real 200, a miss is a real 404 rather
  * than the SPA shell under 200 — which is what Google logs as a soft 404.
  *
+ * `outDir` must sit outside the /catalog URL namespace (see the caller): a
+ * real "catalog" directory in the web root makes mod_dir redirect /catalog to
+ * /catalog/, which the trailing-slash rule strips straight back.
+ *
  * Every file is a byte-for-byte copy of the built shell. Nothing is injected,
  * so no product field reaches the HTML and there is no escaping to get wrong;
  * React still fetches and renders the product client-side exactly as before.
  */
 export async function prerenderProductShells(options: {
-  catalogDir: string;
+  outDir: string;
   shellPath: string;
   slugs: AsyncIterable<string> | Iterable<string>;
 }): Promise<PrerenderResult> {
-  const { catalogDir, shellPath, slugs } = options;
+  const { outDir, shellPath, slugs } = options;
   if (!fs.existsSync(shellPath)) {
     throw new Error(`prerender: shell not found at ${shellPath}; run the client build first`);
   }
-  const resolvedDir = path.resolve(catalogDir);
+  const resolvedDir = path.resolve(outDir);
   fs.mkdirSync(resolvedDir, { recursive: true });
 
   let written = 0;
@@ -57,7 +61,7 @@ export async function prerenderProductShells(options: {
     const slug = String(raw ?? "").trim();
     // The slug becomes a filename, so it is validated rather than sanitised:
     // a legacy or CSV-imported row containing "../" must never be able to
-    // write outside the catalog directory. isValidSeoSlug is the same
+    // write outside the output directory. isValidSeoSlug is the same
     // constraint the admin API enforces on write.
     if (!isValidSeoSlug(slug)) {
       skipped += 1;
@@ -65,7 +69,7 @@ export async function prerenderProductShells(options: {
     }
     const target = path.resolve(resolvedDir, `${slug}.html`);
     // Belt and braces: even if the charset guard above ever loosens, refuse
-    // anything that resolves outside the catalog directory.
+    // anything that resolves outside the output directory.
     if (path.dirname(target) !== resolvedDir) {
       skipped += 1;
       continue;
