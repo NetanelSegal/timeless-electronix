@@ -1,5 +1,117 @@
 # Progress Log
 
+## 2026-08-28
+
+### Soft-404 outbreak: root cause, indexing fixes, and crawlable pagination
+
+Search Console reported **7,141 Soft 404** (first seen 23.5.2026) and **4,874
+"crawled, currently not indexed"** against 16.9K indexed pages. The API was
+returning 503 for every `/api/*` request.
+
+**Root cause.** `connectDB()` called `process.exit(1)` on a failed Mongo
+connection and `app.listen()` only ran after it, so a transient Mongo blip
+stopped the process from ever binding port 3001. pm2 exhausted `max_restarts`
+and gave up, leaving Apache to serve 503 indefinitely. Every product page and
+`/catalog` then rendered a "not found" empty state under HTTP 200 — exactly
+what Google logs as a soft 404.
+
+Commits: `8209db1`, `44e8618`, `4b47cf1` (merge), `41cfb58`, `aa2fcea`.
+
+- **Server**: listen before connecting; retry Mongo with capped exponential
+  backoff instead of exiting, so a DB outage degrades to 5xx rather than taking
+  the port down. `/api/health` now reports DB state and returns 503 when
+  disconnected. pm2 got an exponential backoff restart delay.
+- **Client**: `apiClient` throws `ApiError` carrying the HTTP status;
+  `ProductDetail` distinguishes a real 404 from a 5xx/network failure and
+  renders a distinct "temporarily unavailable" state; `Catalog` no longer falls
+  through to the "no matches" empty state on a failed request; all no-content
+  states carry `noindex`.
+- **Crawlable pagination**: `Pagination` renders real anchors, so the full
+  catalog is reachable instead of only the first 24 products. Each page of the
+  series canonicalises to itself (`/catalog?page=N`) — pointing them all at
+  `/catalog` would have collapsed pages 2..785 onto page 1.
+- **`patchParams` bug** (`aa2fcea`): `CatalogFilters` fires one debounced
+  `onPatch` 400ms after mount, and `patchParams` reset `page` to 1
+  unconditionally, so any direct load of `/catalog?page=N` snapped back to page
+  1 — a crawler following `/catalog?page=2` was served page 1's products. It
+  now returns early when the patch changes nothing.
+- **Deploy**: generate the sitemap *before* the client build (`buildSitemap`
+  writes to `client/public/`, and only `vite build` copies that into the web
+  root, so the previous ordering shipped the prior deploy's sitemap every
+  time); gate the deploy on `/api/health` with a curl/wget/node fallback probe.
+- **`.htaccess`**: strip trailing slashes so `/catalog/x/` and `/catalog/x` are
+  one URL, redirecting explicitly over https (TLS terminates upstream, so a
+  relative `RewriteRule` target inherited the backend's http scheme).
+
+Verified live after deploy: `/api/health` → `200 {"db":"connected"}`, the
+production bundle contains both the `patchParams` guard and the self-canonical,
+`/catalog/` → 301 → `https://.../catalog`, and `sitemap.xml` carries the
+deploy's own timestamp with 18,841 URLs.
+
+### Audit of the remaining Search Console problems
+
+Reviewing a proposal to inject SEO metadata server-side surfaced findings that
+changed the plan. Recorded here because they set the priorities:
+
+1. **`/catalog/<unknown-slug>` returned HTTP 200.** The API correctly answered
+   404, but the SPA shell was served under 200 — the textbook soft 404, and
+   untouched by the fixes above. Addressed below.
+2. **"Crawled, currently not indexed" is a content problem, not a rendering
+   one.** Product descriptions are templated boilerplate (`High-quality {mfr}
+   Electronic Component ({pn}). Suitable for various industrial and consumer
+   electronic applications.`) across all 18.8K products, and **645 slug groups
+   differ only by a trailing numeric suffix** — e.g. `3m-3341-1s-nb889-20` and
+   `-21` are the same 3M part, split into two pages by their internal
+   reference. No amount of server-side rendering fixes thin duplicate content.
+3. **`ourReference` is not a leak.** It was flagged as information disclosure
+   from the model definition alone; the frontend deliberately displays it
+   (`Ref:` badge on `ProductCard` and `ProductDetail`) and the quote cart
+   carries it through to admin quote line items. Left in place — see
+   [`tasks.md`](tasks.md) for the open question.
+4. **Rejected: routing the SPA fallback through Express** to inject metadata
+   per request. It would have made every page depend on Node + Mongo, which is
+   precisely the failure mode that caused this incident, with a blast radius of
+   the whole site rather than just the data. It also introduced stored XSS via
+   unsanitised product fields (`partNumber`, `description`, `technicalSpecs` are
+   free-form; only `seoSlug` is regex-constrained), reflected XSS and host-header
+   injection through a request-derived canonical, and a crawl-amplification DoS
+   of 18.8K Mongo queries.
+
+### Real 404s for unknown parts (build-time prerender)
+
+Chosen instead of the Express proposal because it keeps every request static:
+no availability coupling, no request data in the HTML, no per-request database
+work.
+
+- **[`server/src/utils/prerender.ts`](../../server/src/utils/prerender.ts)** —
+  writes one flat `catalog/<slug>.html` per existing product into
+  `client/dist`, each a hard link to the built shell (18.8K shells cost one
+  inode's worth of data; falls back to a copy where links are unavailable).
+  Nothing is injected into the HTML, so no product field reaches the page and
+  there is no escaping to get wrong.
+- **Path-traversal guard**: the slug becomes a filename, so each one is
+  *validated* (`isValidSeoSlug`, the same constraint the admin API enforces)
+  rather than sanitised, plus a resolved-dirname check. Legacy and
+  CSV-imported rows are not covered by the admin zod schema, so a row
+  containing `../` must never write outside the catalog directory.
+- **[`server/src/scripts/prerenderProductPages.ts`](../../server/src/scripts/prerenderProductPages.ts)**
+  — CLI (`npm run build:prerender --prefix server`) streaming slugs from a
+  Mongo cursor. Runs **after** `vite build`, which empties `client/dist`.
+- **[`client/public/.htaccess`](../../client/public/.htaccess)** — rule 3 serves
+  a prerendered shell for a known slug; rule 4 returns a real 404 for an
+  unknown one. `ErrorDocument 404 /index.html` keeps the styled "Product not
+  found" page (which carries `noindex`) as the 404 body. Files are flat, not
+  directories, so `mod_dir` cannot re-add the trailing slash that rule 2 strips.
+- **Fail-safe**: rule 4 is gated on a `.prerendered` marker written only after
+  the full slug set is emitted. A deploy that cannot reach the database writes
+  no marker, the rule goes dormant, and the SPA shell keeps being served — a
+  failed prerender can never 404 all 18K product pages. The deploy step warns
+  instead of failing for the same reason.
+- 6 tests in
+  [`server/src/__tests__/prerender.test.ts`](../../server/src/__tests__/prerender.test.ts)
+  cover the happy path, traversal slugs, out-of-charset slugs, the marker
+  ordering, a missing shell, and replacement of stale shells.
+
 ## 2026-07-06
 
 ### CI/CD — GitHub Actions + Cloudways auto-deploy

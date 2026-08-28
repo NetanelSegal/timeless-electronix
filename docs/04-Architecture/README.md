@@ -131,3 +131,50 @@ The app is designed to be deployable anywhere:
 - **robots.txt (static site)**: Committed at [`client/public/robots.txt`](../../client/public/robots.txt). For same-origin setups, point **`Sitemap:`** to your main site origin + **`/sitemap.xml`**.
 - **Sitemap (static, like robots.txt)**: **`npm run build:sitemap`** writes **`client/public/sitemap.xml`** (gitignored); Vite copies it to **`client/dist/sitemap.xml`**. Not served by Express.
 - **Cloudways (document root = `client/dist`)**: Deploy the **full monorepo** via Git (not the `client/dist` folder — it is gitignored). Set Apache webroot to **`client/dist`**. Use [`client/public/.htaccess`](../../client/public/.htaccess) (copied into `dist` on build) to proxy **`/api`** to Node on port 3001 and SPA-fallback. Run **`npm run build`** on the server after each deploy so **`client/dist/sitemap.xml`** exists. See [`docs/06-Development/README.md`](../06-Development/README.md) for GitHub Actions + Cloudways setup.
+
+
+### Request routing and HTTP status truthfulness
+
+The web root is static; Node is only reached through the `/api` proxy. This is
+deliberate — it keeps the site renderable when the API is down, which is what
+turned a Mongo blip into 7,141 soft 404s in May 2026.
+
+Apache rule order in [`client/public/.htaccess`](../../client/public/.htaccess):
+
+| # | Rule | Purpose |
+|---|------|---------|
+| 1 | `^api/(.*)` → `127.0.0.1:3001` | Proxy the API (`[P]`) |
+| 2 | `^(.+)/$` → https, 301 | One URL per page; explicit https because TLS terminates upstream |
+| 3 | `^catalog/([^/]+)$` → `catalog/$1.html` if it exists | Serve a prerendered product shell (200) |
+| 4 | `^catalog/([^/]+)$` → 404, if `.prerendered` exists and the shell does not | A part that does not exist gets a real 404 |
+| 5–6 | anything else not a file → `index.html` | SPA fallback (200) |
+
+**Why a prerender rather than server-side rendering.** A crawler asking for a
+product that is not in the catalog must get a 404, but Apache cannot know which
+of the 18.8K slugs are real without asking something. Routing the SPA fallback
+through Express would answer that — at the cost of making every page depend on
+Node + Mongo (the failure mode above), injecting unsanitised product fields
+into HTML, and running a database query per crawl. Instead the build writes one
+flat `catalog/<slug>.html` per existing product (hard links to the shell, so
+~one inode's worth of data), turning the question into a file-existence test
+that Apache answers on its own.
+
+- The shells are byte-identical copies of `index.html`. No product data is
+  injected, so there is no escaping to get wrong and nothing to leak; React
+  fetches and renders the product client-side exactly as before.
+- Slugs become filenames, so they are **validated** (`isValidSeoSlug`) rather
+  than sanitised, with a resolved-dirname check behind it. Legacy and
+  CSV-imported rows bypass the admin zod schema.
+- Files are flat, not directories, so `mod_dir`'s `DirectorySlash` cannot
+  re-add the trailing slash that rule 2 strips.
+- `ErrorDocument 404 /index.html` makes the 404 body the SPA shell, so the
+  styled "Product not found" page (which carries `noindex`) still renders —
+  under a 404 status instead of 200.
+- **Fail-safe**: rule 4 is gated on the `.prerendered` marker, written only
+  after the full slug set is emitted. A deploy that cannot reach the database
+  writes no marker, the rule goes dormant, and the SPA shell is served as
+  before. A failed prerender can never 404 the whole catalog.
+
+Build order matters: `build:sitemap` runs **before** `vite build` (it writes to
+`client/public/`, which Vite copies into the web root), and `build:prerender`
+runs **after** it (it writes into `client/dist`, which Vite empties).

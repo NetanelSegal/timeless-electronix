@@ -20,14 +20,52 @@
 - [x] **Documentation**: Frameworks, Architecture, Development, Tests docs updated
 - [x] **Routing rewrite**: same-origin `/api` client base, Vite proxy for `/api` and `/sitemap.xml`, and Cloudways-ready Apache rewrite order via `client/public/.htaccess`
 - [x] **Product Status (Condition) Seeding & Enum Enforcement**: Added `condition` string enum field (`'New/Standard' | 'Used' | 'Refurbished' | 'Broken'`) to the Mongoose schema and TypeScript interface. Extracted statuses from `Timeless Stock List 15.06.26.xlsx` to update 13,315 matching database products, and standardized all database products to strictly conform to the enum.
+- [x] **Product detail page**: slug-based `/catalog/:seoSlug` route with images, specs, condition badge, and add-to-quote.
+- [x] **Soft-404 / indexing fixes** (2026-08-28): kept the API alive through Mongo outages, stopped rendering 5xx as "not found", `noindex` on every no-content state, crawlable catalog pagination with self-referencing canonicals, https trailing-slash redirect, and a health gate on the deploy. See [`progress.md`](progress.md).
+- [x] **Client-side tests**: Vitest + React Testing Library (34 tests across 8 files).
+- [x] **SEO meta tags per page**: `PageSeo` (react-helmet-async) with canonical, Open Graph, and `noindex` control; product JSON-LD on the detail page.
+- [x] **Image gallery** for products with multiple images (thumbnail strip on `ProductDetail`).
+- [x] **Real 404s for unknown parts** (2026-08-28): build-time prerender of one flat shell per existing slug plus `.htaccess` rules, so `/catalog/<unknown>` returns 404 instead of the SPA shell under 200. Gated on a `.prerendered` marker so a failed prerender cannot 404 the catalog.
 
 ## Backlog / Future
 
-- [ ] Product detail page (click through from catalog)
+### Search Console — remaining work (prioritised 2026-08-28)
+
+- [ ] **Consolidate 645 duplicate slug groups.** Slugs differing only by a
+      trailing numeric suffix (`3m-3341-1s-nb889-20` / `-21`) are the same part
+      split across pages by internal reference. Pick one canonical URL per
+      (partNumber, manufacturer) and point the rest at it. This is the likeliest
+      driver of the 4,874 "crawled, currently not indexed".
+- [ ] **Differentiate product copy.** `description` and `productSummary` are
+      templated boilerplate across all 18.8K products. Server-side rendering
+      does not fix thin duplicate content — either write real copy for the parts
+      that get searched, or `noindex` the long tail and spend crawl budget on
+      the rest.
+- [ ] **Decide on `ourReference` in the public API.** It is deliberately shown
+      to customers (`Ref:` badge) and flows through the quote cart, so it is not
+      a leak — but it is an internal stock reference, it is returned on every
+      public product response, and it is what fragments the slugs above. Open
+      question for the business, not a bug.
+- [ ] **Request validation in Search Console** for the Soft 404 and "crawled,
+      not indexed" reports, then track the counts down over the following weeks.
+- [ ] **Server-side metadata injection** — only after the above. The prerender
+      now makes this cheap and safe: titles, canonicals and JSON-LD can be baked
+      into each shell at build time, with escaping done once at build rather
+      than per request. Do **not** route the SPA fallback through Express; see
+      the rejected proposal in [`progress.md`](progress.md).
+
+### Engineering
+
+- [ ] **Poll for git sync in CI** instead of the fixed `sleep 30` in
+      `.github/workflows/deploy.yml`; a slow Cloudways pull currently builds the
+      previous commit silently.
+- [ ] **Upgrade `actions/checkout` and `actions/setup-node` to v5** — v4 targets
+      the deprecated Node 20 and is force-run on Node 24.
+- [ ] Delete merged branches: `fix/soft-404-indexing`, `test`,
+      `feature/cloudways-github-actions`, `feature/product-seo-slugs`.
+
+### Product
+
 - [ ] Email templates with React Email components (currently inline HTML)
-- [ ] Client-side tests (Vitest + React Testing Library)
-- [x] **CI/CD pipeline (GitHub Actions)**: Lint + test on PR/push; deploy to Cloudways via API after CI passes on `main`, with post-deploy build script and Varnish purge
-- [ ] SEO meta tags per page
-- [ ] Image gallery for products with multiple images
 - [ ] Admin: bulk delete, export products
 - [ ] Rate limiting on public API endpoints

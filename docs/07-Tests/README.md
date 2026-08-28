@@ -25,11 +25,20 @@
 
 | File | Tests | Coverage |
 |------|-------|----------|
-| `products.test.ts` | 8 | GET list, search, manufacturer filter, manufacturers endpoint, get by ID, 404 |
+| `products.test.ts` | 11 | GET list, search, manufacturer filter, manufacturers endpoint, get by ID/slug, 404 |
 | `contact.test.ts` | 3 | Create message, required field validation, email format validation |
 | `quotes.test.ts` | 4 | Create quote, empty items validation, email validation |
-| `admin.test.ts` | 12 | Login, JWT auth, stats, product CRUD/list filters, messages, quotes |
-| **Total** | **27** | |
+| `admin.test.ts` | 14 | Login, JWT auth, stats, product CRUD/list filters, messages, quotes |
+| `seoSlug.test.ts` | 5 | Slug charset, length cap, numeric-suffix collisions |
+| `productSlugService.test.ts` | 5 | Slug assignment and uniqueness on write |
+| `prerender.test.ts` | 6 | Shell per valid slug, marker ordering, path traversal, charset rejection, missing shell, stale replacement |
+| **Total** | **48** | |
+
+`prerender.test.ts` is the security boundary for the build-time prerender:
+product slugs become filenames, so the traversal and charset cases assert that
+a row containing `../` or characters outside `[a-z0-9-]` is **skipped**, never
+sanitised into a write outside the catalog directory. See
+[`04-Architecture`](../04-Architecture/README.md#request-routing-and-http-status-truthfulness).
 
 ## Client test suites
 
@@ -38,7 +47,17 @@
 | `AdminSidebar.test.tsx` | 3 | Collapse/expand, logout clears token |
 | `AdminProductsFilters.test.tsx` | 3 | Panel toggle, search scope patch, debounced manufacturer |
 | `useAdminSidebarCollapsed.test.ts` | 2 | localStorage read/write |
-| **Total** | **8** | |
+| `useCatalog.test.tsx` | 5 | URL param sync, sort presets, and the mount patch that must **not** reset `page` |
+| `useDebouncedSearchToUrl.test.tsx` | 6 | Debounced URL writes |
+| `useDebouncedValue.test.ts` | 3 | Debounce timing |
+| `apiClient.test.ts` | 3 | `ApiError` carries the HTTP status so 404 and 5xx render differently |
+| `listUrlQuery.test.ts` | 9 | Page parsing, sort resolution |
+| **Total** | **34** | |
+
+`useCatalog.test.tsx` and `apiClient.test.ts` are SEO regression guards, not
+just unit tests — they pin the two bugs that turned backend downtime and
+paginated crawling into soft 404s. See the 2026-08-28 entry in
+[`06-Development/progress.md`](../06-Development/progress.md).
 
 ## Running tests
 
