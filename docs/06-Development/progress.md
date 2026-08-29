@@ -142,9 +142,54 @@ have been prerendered falls through to the SPA shell instead of 404-ing, and
 rule 4b returns 404 for direct `/_parts/…` hits so the shells do not become a
 second URL for the same page.
 
-The prerender wrote **18,314** shells and skipped **522** rows whose `seoSlug`
-is outside `[a-z0-9-]`. Those parts keep serving the SPA shell under 200 —
-tracked in [`tasks.md`](tasks.md).
+The prerender wrote **18,314** shells and skipped **522** rows. That skip count
+turned out to be a third bug — see below.
+
+#### 522 real products answered 404 (guard/rule divergence)
+
+The prerender guarded with `isValidSeoSlug`, but the `.htaccess` rule matched on
+charset (`[a-z0-9-]+`). Those are not the same set, and every slug in the gap
+got **no shell but a matching 404 rule**: a real, sitemap-listed product
+answered with a hard 404. Confirmed live —
+`/catalog/ad-adsp-2183kca-210-nb372-13-356-` returned **404** while
+`/api/products/slug/…` returned **200** for the same part.
+
+Breakdown of the 522: **399** trailing hyphen, **122** doubled hyphen, **1**
+longer than 120 chars. All of them are perfectly safe filenames.
+
+The mistake was conflating two different concerns in one predicate:
+
+| Concern | Rule | Is it a security boundary? |
+|---|---|---|
+| **Filename safety** — what the prerender actually needs | no path separator, no dot (so no `..`), no uppercase, bounded length | **Yes** |
+| **URL shape** (`isValidSeoSlug`) — also bans leading/trailing/doubled hyphens | a style policy for slugs *we* generate | No |
+
+`isValidSeoSlug` is the stricter of the two, which felt like the safe choice and
+was the opposite: it shrank the set that got shells without shrinking the set
+the 404 rule fired on.
+
+Fix: a dedicated `isPrerenderableSlug` (`^[a-z0-9-]{1,120}$`) expressing
+filename safety only, with the identical charset and bound in the `.htaccess`
+pattern (`^catalog/([a-z0-9-]{1,120})$`), and a comment on both sides saying
+they must stay in sync. Anything outside that set now matches *neither* rule and
+falls through to the SPA shell under 200 — the old behaviour, which is always
+safe. The single 144-char slug lands there.
+
+`prerender.test.ts` grew a table test asserting the predicate accepts exactly
+what the Apache pattern accepts, plus a regression case for the untidy legacy
+slugs. Server suite: 48 → 62 tests.
+
+#### What this sequence should change
+
+Three regressions shipped from one change, all in the layer with no local test.
+The `.htaccess` cannot be exercised in the dev environment, and the
+`.prerendered` fail-safe only ever covered *the prerender not running* — not
+the rules being wrong, which is what actually went wrong all three times. Before
+touching these rules again, verify against production immediately after deploy
+with the route matrix in [`README.md`](README.md#verifying-a-deploy-actually-shipped),
+including a sample drawn from the sitemap rather than a hand-picked URL: the
+first two rounds of checking used one known-good slug, which is exactly the
+case that worked.
 
 ## 2026-07-06
 

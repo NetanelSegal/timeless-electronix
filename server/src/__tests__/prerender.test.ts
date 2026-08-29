@@ -3,7 +3,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
+  MAX_PRERENDER_SLUG_LENGTH,
   PRERENDER_MARKER,
+  isPrerenderableSlug,
   prerenderProductShells,
 } from "../utils/prerender.js";
 
@@ -72,6 +74,59 @@ describe("prerenderProductShells", () => {
     expect(res.written).toBe(0);
     expect(res.skipped).toBe(6);
     expect(fs.readdirSync(outDir)).toEqual([PRERENDER_MARKER]);
+  });
+
+  // Regression: these are untidy but perfectly safe filenames. Guarding with
+  // isValidSeoSlug (which forbids them as a URL-shape policy) skipped 521 real
+  // products while the .htaccess rule still matched them on charset, so they
+  // were answered with a hard 404 despite existing. The two must accept the
+  // same set.
+  it("writes shells for untidy but safe legacy slugs", async () => {
+    const res = await prerenderProductShells({
+      outDir,
+      shellPath,
+      slugs: [
+        "ad-adsp-2183kca-210-nb372-13-356-", // trailing hyphen
+        "ad-ad712jr--1ur-183", // doubled hyphen
+        "-leading-hyphen",
+      ],
+    });
+
+    expect(res).toEqual({ written: 3, skipped: 0 });
+    expect(
+      fs.existsSync(path.join(outDir, "ad-adsp-2183kca-210-nb372-13-356-.html")),
+    ).toBe(true);
+    expect(fs.existsSync(path.join(outDir, "ad-ad712jr--1ur-183.html"))).toBe(true);
+  });
+
+  it("rejects slugs longer than the .htaccess bound", async () => {
+    const res = await prerenderProductShells({
+      outDir,
+      shellPath,
+      slugs: ["a".repeat(MAX_PRERENDER_SLUG_LENGTH + 1)],
+    });
+
+    expect(res).toEqual({ written: 0, skipped: 1 });
+  });
+
+  describe("isPrerenderableSlug matches the .htaccess pattern", () => {
+    // The rule is ^catalog/([a-z0-9-]{1,120})$ — keep these in lockstep.
+    it.each([
+      ["abc-123", true],
+      ["trailing-", true],
+      ["-leading", true],
+      ["double--hyphen", true],
+      ["a".repeat(120), true],
+      ["a".repeat(121), false],
+      ["", false],
+      ["Upper", false],
+      ["has space", false],
+      ["dot.dot", false],
+      ["../escape", false],
+      ["with/slash", false],
+    ])("%s -> %s", (slug, expected) => {
+      expect(isPrerenderableSlug(slug)).toBe(expected);
+    });
   });
 
   it("fails loudly when the client build has not run", async () => {

@@ -26,7 +26,7 @@
 - [x] **SEO meta tags per page**: `PageSeo` (react-helmet-async) with canonical, Open Graph, and `noindex` control; product JSON-LD on the detail page.
 - [x] **Image gallery** for products with multiple images (thumbnail strip on `ProductDetail`).
 - [x] **Real 404s for unknown parts** (2026-08-28): build-time prerender of one flat shell per existing slug (into `_parts/`, outside the `/catalog` route namespace) plus `.htaccess` rules, so `/catalog/<unknown>` returns 404 instead of the SPA shell under 200. Gated on a `.prerendered` marker so a failed prerender cannot 404 the catalog.
-- [ ] **Investigate 522 products with an unsafe `seoSlug`** — the prerender skips them, so they still serve the SPA shell under 200. They are outside `[a-z0-9-]`, so they also fail the admin schema on write.
+- [ ] **Tidy 521 legacy slugs** with leading/trailing/doubled hyphens (399 + 122) so they satisfy `isValidSeoSlug` like newly generated ones. They are prerendered and serve correctly — this is hygiene, not a defect. One slug is 144 chars, over the 120 bound, and falls through to the SPA shell under 200.
 
 ## Backlog / Future
 

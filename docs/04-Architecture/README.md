@@ -173,9 +173,17 @@ that Apache answers on its own.
   rewritten target cannot re-match rule 3 on the next pass and fall through to
   the 404 in rule 4. Both were shipped and caught in production on 2026-08-28;
   see `progress.md`.
-- The slug charset is matched explicitly in the rules (`[a-z0-9-]`, the same
-  constraint the prerender validates), so a request that could never have been
-  prerendered falls through to the SPA shell rather than 404-ing.
+- **The `.htaccess` slug pattern and `isPrerenderableSlug` must accept exactly
+  the same set** (`^[a-z0-9-]{1,120}$`, asserted by a table test). Whatever the
+  rule 404s on a miss must be what the prerender writes on a hit; a slug in the
+  gap gets no shell but still matches the 404 rule, which is how 522 real
+  products were answered with a hard 404 on 2026-08-28. Anything outside the
+  set matches neither rule and falls through to the SPA shell under 200.
+- That predicate is deliberately **not** `isValidSeoSlug`. It expresses
+  filename safety (no separator, no dot, bounded length); `isValidSeoSlug` also
+  bans leading/trailing/doubled hyphens, which is a URL-shape policy for slugs
+  we generate and not a security property. 521 legacy rows violate it
+  harmlessly.
 - **Cloudways serves existing static files from nginx, without consulting
   `.htaccess`.** Confirmed in production: a direct `/_parts/<slug>.html` hit
   returns `Server: nginx` with a one-year `Cache-Control` and never reaches

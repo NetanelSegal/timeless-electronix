@@ -16,11 +16,15 @@
     #    The files live outside the /catalog namespace on purpose: a real
     #    "catalog" directory would make mod_dir redirect /catalog to /catalog/,
     #    which rule 2 strips back, looping forever.
-    #    The slug charset is matched explicitly ([a-z0-9-], the same constraint
-    #    the prerender validates) so the rewritten _parts/<slug>.html cannot
-    #    re-enter this rule on the next pass and fall through to rule 4.
+    #    The slug pattern MUST STAY IN SYNC with isPrerenderableSlug in
+    #    server/src/utils/prerender.ts: whatever this rule 404s on a miss must
+    #    be exactly what the prerender writes on a hit. A slug outside the set
+    #    matches neither rule and falls through to the SPA shell under 200 —
+    #    the old behaviour, which is always safe. Matching the charset also
+    #    keeps the rewritten _parts/<slug>.html (it has a dot) from re-entering
+    #    this rule on the next pass and falling through to rule 4.
     RewriteCond %{DOCUMENT_ROOT}/_parts/$1.html -f
-    RewriteRule ^catalog/([a-z0-9-]+)$ /_parts/$1.html [L]
+    RewriteRule ^catalog/([a-z0-9-]{1,120})$ /_parts/$1.html [L]
 
     # 4. Unknown part number: a real 404 instead of the SPA shell under HTTP
     #    200, which is exactly what Google classifies as a soft 404.
@@ -30,7 +34,7 @@
     #    rather than 404-ing every product page.
     RewriteCond %{DOCUMENT_ROOT}/_parts/.prerendered -f
     RewriteCond %{DOCUMENT_ROOT}/_parts/$1.html !-f
-    RewriteRule ^catalog/([a-z0-9-]+)$ - [R=404,L]
+    RewriteRule ^catalog/([a-z0-9-]{1,120})$ - [R=404,L]
 
     # 4b. The prerendered shells are an implementation detail reachable only
     #     through rule 3. THE_REQUEST is the original request line and is not
