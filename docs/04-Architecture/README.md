@@ -133,6 +133,48 @@ The app is designed to be deployable anywhere:
 - **Cloudways (document root = `client/dist`)**: Deploy the **full monorepo** via Git (not the `client/dist` folder — it is gitignored). Set Apache webroot to **`client/dist`**. Use [`client/public/.htaccess`](../../client/public/.htaccess) (copied into `dist` on build) to proxy **`/api`** to Node on port 3001 and SPA-fallback. Run **`npm run build`** on the server after each deploy so **`client/dist/sitemap.xml`** exists. See [`docs/06-Development/README.md`](../06-Development/README.md) for GitHub Actions + Cloudways setup.
 
 
+### Parts, stock lots, and manufacturer names
+
+A part number is **one product**; each database row is **one stock lot** of it.
+Lots of the same part differ by quantity and internal reference, in ~44% of
+groups by date code, and essentially never by condition (measured over 1,000
+products spread across the catalog; the only two mixed-condition groups were
+rows with a corrupted part number). Slugs were assigned at import: the first
+lot gets `<manufacturer>-<partNumber>`, every later lot appends its reference
+(`avx-06035a1r2bat2a-nb808-42`). That is correct collision avoidance, but it
+produces **3,618 redundant URLs across 2,284 parts** — near-identical pages
+competing with each other, against 4,874 "crawled, currently not indexed" in
+Search Console.
+
+**The group is keyed on `partNumber` alone, not `(partNumber, manufacturer)`.**
+The manufacturer field is dirty — 594 of the 2,000 distinct strings are casing
+variants of another (292 groups: `ABRACON`/`Abracon`, `LITTELFUSE`/`Littelfuse`)
+— so keying on it would split a part across two pages purely on spelling. The
+cost is that ~2% of part numbers appear under genuinely different brands (an
+OEM part sold as both HP and Lenovo); those merge into one page, with the
+manufacturer shown per lot. Part number spelling, unlike manufacturer, is
+consistent within a group (0 of 781 sampled groups vary), so the lookup matches
+exactly and uses the `partNumber` index rather than scanning per page view.
+
+`GET /api/products/slug/:seoSlug` therefore returns, alongside the product:
+
+| Field | Meaning |
+|---|---|
+| `canonicalSeoSlug` | Slug of the lot whose URL represents the part |
+| `isCanonical` | Whether this URL is that one |
+| `lots[]` | Every lot: condition, manufacturer, quantity, date code, reference, `_id` |
+| `manufacturers[]` | Display names across the group, casing variants collapsed |
+
+The canonical lot is the **oldest by `createdAt`**, tie-broken by `_id`. It must
+not drift as stock changes — a canonical that moves undoes the consolidation it
+exists to create — which is why it is not chosen by quantity. In practice the
+oldest row also holds the clean base slug, because slugs were assigned in
+import order.
+
+Lot URLs stay reachable and return 200; they carry `rel=canonical` to the
+canonical URL rather than redirecting, so nothing that is already linked or
+indexed breaks.
+
 ### Request routing and HTTP status truthfulness
 
 The web root is static; Node is only reached through the `/api` proxy. This is
