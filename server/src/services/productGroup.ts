@@ -1,6 +1,7 @@
 import { Product } from "../models/Product.js";
 import { distinctManufacturerNames } from "../utils/manufacturerName.js";
 import { PRODUCT_CONDITIONS } from "../utils/productListFilter.js";
+import { isCorruptedValue } from "../utils/productData.js";
 
 /**
  * One stock lot of a part: same component, different intake. Lots differ by
@@ -86,7 +87,12 @@ export async function getProductGroup(
   partNumber: string,
 ): Promise<ProductGroup> {
   const pn = partNumber.trim();
-  if (!pn) return { lots: [], canonicalSeoSlug: "", manufacturers: [] };
+  // A corrupted part number is shared by 45 unrelated rows across 13
+  // manufacturers, so grouping on it would present them as 45 lots of one
+  // part. Treat each as ungrouped until the rows are repaired at source.
+  if (!pn || isCorruptedValue(pn)) {
+    return { lots: [], canonicalSeoSlug: "", manufacturers: [] };
+  }
 
   const docs = await Product.find(
     { partNumber: pn, seoSlug: { $nin: [null, ""] } },

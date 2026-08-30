@@ -132,6 +132,19 @@ describe("getProductGroup", () => {
     });
   });
 
+  it("does not group unrelated rows that share a corrupted part number", async () => {
+    await Product.insertMany([
+      { partNumber: "[object Object]", manufacturer: "EVERLIGHT", quantity: 1, seoSlug: "everlight-object-object", createdAt: d("2026-01-01T00:00:00Z") },
+      { partNumber: "[object Object]", manufacturer: "MOLEX", quantity: 1, seoSlug: "molex-object-object", createdAt: d("2026-01-02T00:00:00Z") },
+    ]);
+    // Two different manufacturers' products; they are not lots of one part.
+    expect(await getProductGroup("[object Object]")).toEqual({
+      lots: [],
+      canonicalSeoSlug: "",
+      manufacturers: [],
+    });
+  });
+
   it("lists both brands for an OEM cross-branded part", async () => {
     await Product.insertMany([
       { partNumber: "00HN475", manufacturer: "HP", quantity: 5, seoSlug: "hp-00hn475", createdAt: d("2026-01-01T00:00:00Z") },
