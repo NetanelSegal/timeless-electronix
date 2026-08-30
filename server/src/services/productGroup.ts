@@ -40,15 +40,31 @@ function conditionRank(condition: string): number {
  * practice the oldest row is also the one holding the clean base slug, because
  * slugs were assigned in import order.
  */
-export function selectCanonicalDoc<
-  T extends { _id: unknown; createdAt?: Date; seoSlug?: string },
->(docs: readonly T[]): T | undefined {
-  return [...docs].sort((a, b) => {
-    const at = a.createdAt?.getTime() ?? 0;
-    const bt = b.createdAt?.getTime() ?? 0;
-    if (at !== bt) return at - bt;
-    return String(a._id) < String(b._id) ? -1 : 1;
-  })[0];
+export interface CanonicalCandidate {
+  _id: unknown;
+  createdAt?: Date;
+  seoSlug?: string;
+}
+
+/**
+ * Negative when `a` should be the canonical. Exported so the sitemap picks the
+ * same row the product API does — if they disagree, the sitemap advertises a
+ * URL that points its canonical somewhere else.
+ */
+export function compareCanonicalPriority(
+  a: CanonicalCandidate,
+  b: CanonicalCandidate,
+): number {
+  const at = a.createdAt?.getTime() ?? 0;
+  const bt = b.createdAt?.getTime() ?? 0;
+  if (at !== bt) return at - bt;
+  return String(a._id) < String(b._id) ? -1 : 1;
+}
+
+export function selectCanonicalDoc<T extends CanonicalCandidate>(
+  docs: readonly T[],
+): T | undefined {
+  return [...docs].sort(compareCanonicalPriority)[0];
 }
 
 export function sortLotsForDisplay(lots: ProductLot[]): ProductLot[] {

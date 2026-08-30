@@ -186,6 +186,16 @@ Lot URLs stay reachable and return 200; they carry `rel=canonical` to the
 canonical URL rather than redirecting, so nothing that is already linked or
 indexed breaks.
 
+The **sitemap lists one URL per part, not per lot** — ~15,218 instead of
+18,836. Advertising every lot would ask Google to crawl 3,618 pages that each
+point their canonical elsewhere, spending crawl budget to be told to look
+somewhere else. The winner is chosen with the same comparator the product API
+uses (`compareCanonicalPriority`), so the sitemap can never advertise a URL
+that canonicalises to a different one; a test pins the two together. `lastmod`
+is the latest change anywhere in the group, since the page shows every lot.
+**The prerender still writes a shell for every slug** — lot URLs must keep
+returning 200, they are simply not advertised.
+
 A part page with more than one lot shows them as a table and quotes each one
 separately, so a customer can ask for 500 from the new lot and 200 from the used
 one in a single request. Each becomes its own cart line, keyed by the lot's
