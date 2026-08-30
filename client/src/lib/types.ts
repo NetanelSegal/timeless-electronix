@@ -16,6 +16,31 @@ export interface Product {
   isSample: boolean;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Group fields, present only on the detail endpoint. Every lot of a part
+   * canonicalises to one URL so the lots do not compete with each other in
+   * search; the page still renders the lot that was requested.
+   */
+  canonicalSeoSlug?: string;
+  isCanonical?: boolean;
+  lots?: ProductLot[];
+  /** Display names across the group; more than one for OEM cross-brands. */
+  manufacturers?: string[];
+}
+
+/**
+ * One stock lot of a part: same component, different intake. Lots differ by
+ * quantity and internal reference, often by date code, and rarely by
+ * condition. Only the product detail response carries them.
+ */
+export interface ProductLot {
+  _id: string;
+  seoSlug: string;
+  manufacturer: string;
+  condition: ProductCondition | "";
+  quantity: number;
+  dateCode: string;
+  ourReference: string;
 }
 
 export interface ProductsResponse {

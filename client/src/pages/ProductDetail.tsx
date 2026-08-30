@@ -6,6 +6,7 @@ import { api } from "../lib/api";
 import { ApiError } from "../lib/apiClient";
 import type { Product } from "../lib/types";
 import { absoluteUrl } from "../lib/siteUrl";
+import { canonicalSlugFor, manufacturerLabel } from "../lib/productGroup";
 import { COMPANY } from "../lib/constants";
 import CloudinaryImage from "../components/CloudinaryImage";
 import { useQuote } from "../context/QuoteContext";
@@ -14,7 +15,8 @@ import ProductConditionBadge from "../components/ProductConditionBadge";
 import type { ProductCondition } from "../lib/productCondition";
 
 function productJsonLd(product: Product, canonical: string) {
-  const name = `${product.partNumber}${product.manufacturer ? ` — ${product.manufacturer}` : ""}`;
+  const maker = manufacturerLabel(product);
+  const name = `${product.partNumber}${maker ? ` — ${maker}` : ""}`;
   const desc =
     product.productSummary?.trim() ||
     product.description?.trim() ||
@@ -33,8 +35,9 @@ function productJsonLd(product: Product, canonical: string) {
   } else if (imgs.length > 1) {
     data.image = imgs;
   }
-  if (product.manufacturer) {
-    data.brand = { "@type": "Brand", name: product.manufacturer };
+  const brandName = manufacturerLabel(product);
+  if (brandName) {
+    data.brand = { "@type": "Brand", name: brandName };
   }
   const itemConditionByStatus: Record<ProductCondition, string> = {
     "New/Standard": "https://schema.org/NewCondition",
@@ -217,14 +220,19 @@ export default function ProductDetail() {
     );
   }
 
-  const catalogPath = `/catalog/${encodeURIComponent(product.seoSlug)}`;
-  const canonical = absoluteUrl(catalogPath);
+  // The page renders the lot that was requested, but points its canonical at
+  // the URL that represents the part. Without this, every stock lot of a part
+  // is a separate near-identical page competing with the others — 3,618
+  // redundant URLs across the catalog.
+  const canonicalPath = `/catalog/${encodeURIComponent(canonicalSlugFor(product))}`;
+  const canonical = absoluteUrl(canonicalPath);
   const images = product.imageUrls;
-  const titleBase = `${product.partNumber} — ${product.manufacturer || "Component"}`;
+  const makerLabel = manufacturerLabel(product);
+  const titleBase = `${product.partNumber} — ${makerLabel || "Component"}`;
   const metaDescription =
     product.productSummary?.trim().slice(0, 160) ||
     product.description?.trim().slice(0, 160) ||
-    `${product.partNumber}${product.manufacturer ? ` by ${product.manufacturer}` : ""}. In stock at ${COMPANY.name}. Request a quote online.`;
+    `${product.partNumber}${makerLabel ? ` by ${makerLabel}` : ""}. In stock at ${COMPANY.name}. Request a quote online.`;
   const isInQuote = items.some((i) => i.productId === product._id);
 
   const specEntries =
@@ -256,7 +264,7 @@ export default function ProductDetail() {
       <PageSeo
         title={titleBase}
         description={metaDescription}
-        path={catalogPath}
+        path={canonicalPath}
         ogImage={images[0]}
       />
       <Helmet>
@@ -315,7 +323,7 @@ export default function ProductDetail() {
                 {product.partNumber}
               </h1>
               <p className="text-green-brand font-medium mb-4">
-                {product.manufacturer || "—"}
+                {makerLabel || "—"}
               </p>
               <div className="flex flex-wrap items-center gap-3 text-sm text-text-secondary mb-6">
                 <span className="inline-flex items-center gap-1 bg-bg-card px-3 py-1 rounded-lg border border-border">
