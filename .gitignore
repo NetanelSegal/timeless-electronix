@@ -17,3 +17,5 @@ server/timeless-electronix.products.json
 server/final_products_ready.csv
 
 cloudways-*
+# playwright-cli scratch output
+.playwright-cli/
