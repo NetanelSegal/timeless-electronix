@@ -81,6 +81,16 @@ describe("sitemap", () => {
     expect(xml.startsWith('<?xml version="1.0" encoding="UTF-8"?>')).toBe(true);
   });
 
+  it("leaves out rows whose part number is a stringified object", async () => {
+    await Product.insertMany([
+      { partNumber: "[object Object]", seoSlug: "everlight-object-object", quantity: 1, createdAt: d("2026-05-01T00:00:00Z") },
+      { partNumber: "REAL-PART", seoSlug: "real-part", quantity: 1, createdAt: d("2026-05-01T00:00:00Z") },
+    ]);
+
+    const xml = await buildSitemapXmlString(BASE);
+    expect(productLocs(xml)).toEqual([`${BASE}/catalog/real-part`]);
+  });
+
   it("skips rows with no slug", async () => {
     await Product.insertMany([
       { partNumber: "A", seoSlug: "a-slug", quantity: 1, createdAt: d("2026-05-01T00:00:00Z") },

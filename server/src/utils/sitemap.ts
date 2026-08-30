@@ -1,5 +1,6 @@
 import { Product } from "../models/Product.js";
 import { compareCanonicalPriority } from "../services/productGroup.js";
+import { isCorruptedValue } from "./productData.js";
 
 export function escapeXml(s: string): string {
   return s
@@ -64,6 +65,9 @@ export async function buildSitemapXmlString(
   for await (const doc of cursor) {
     const slug = String(doc.seoSlug ?? "").trim();
     if (!slug) continue;
+    // Not advertised for crawling: the part number is a stringified object, so
+    // the page has nothing to rank for until the row is repaired at source.
+    if (isCorruptedValue(doc.partNumber)) continue;
     const candidate: CanonicalEntry = {
       _id: doc._id,
       createdAt: doc.createdAt instanceof Date ? doc.createdAt : undefined,

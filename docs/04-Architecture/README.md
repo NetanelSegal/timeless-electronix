@@ -205,6 +205,21 @@ tell the office which stock was meant. Both fields default to `""`, so a cart
 saved before this existed still submits. A single-lot part keeps the simpler
 add-to-quote control.
 
+### Rows corrupted at import
+
+45 rows carry the literal string `[object Object]` as their part number — a
+JavaScript object stringified into a string field during an import, across 13
+manufacturers. The real value is **not recoverable from the database**: their
+`technicalSpecs` are empty. Repair needs the source stock list; the
+`description` still holds real text ("Photo Emitter LED SM 575NM YEL"), which
+may help match them back.
+
+Until then the rows stay out of search rather than being indexed under a
+meaningless title: `isCorruptedValue` (mirrored in
+`server/src/utils/productData.ts` and `client/src/lib/productData.ts`) marks the
+page `noindex`, suppresses its product JSON-LD, and drops it from the sitemap.
+The page itself still works for anyone holding the link.
+
 ### Request routing and HTTP status truthfulness
 
 The web root is static; Node is only reached through the `/api` proxy. This is

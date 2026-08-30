@@ -7,6 +7,7 @@ import { ApiError } from "../lib/apiClient";
 import type { Product } from "../lib/types";
 import { absoluteUrl } from "../lib/siteUrl";
 import { canonicalSlugFor, manufacturerLabel } from "../lib/productGroup";
+import { isCorruptedValue } from "../lib/productData";
 import { COMPANY } from "../lib/constants";
 import CloudinaryImage from "../components/CloudinaryImage";
 import { useQuote } from "../context/QuoteContext";
@@ -233,6 +234,10 @@ export default function ProductDetail() {
   // the single add-to-quote control. A lone lot keeps the simpler control.
   const lots = product.lots ?? [];
   const showLotTable = lots.length > 1;
+  // The part number was lost to a stringified object at import. The page still
+  // works for anyone holding the link, but it has no term to rank for, so it
+  // stays out of the index until the row is repaired at source.
+  const dataCorrupted = isCorruptedValue(product.partNumber);
   const titleBase = `${product.partNumber} — ${makerLabel || "Component"}`;
   const metaDescription =
     product.productSummary?.trim().slice(0, 160) ||
@@ -273,12 +278,15 @@ export default function ProductDetail() {
         description={metaDescription}
         path={canonicalPath}
         ogImage={images[0]}
+        noindex={dataCorrupted}
       />
-      <Helmet>
-        <script type="application/ld+json">
-          {productJsonLd(product, canonical)}
-        </script>
-      </Helmet>
+      {dataCorrupted ? null : (
+        <Helmet>
+          <script type="application/ld+json">
+            {productJsonLd(product, canonical)}
+          </script>
+        </Helmet>
+      )}
 
       <section className="bg-bg-secondary border-b border-border py-8 px-4">
         <div className="max-w-4xl mx-auto">

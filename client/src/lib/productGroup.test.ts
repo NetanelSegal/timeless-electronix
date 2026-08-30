@@ -5,6 +5,7 @@ import {
   manufacturerLabel,
 } from "./productGroup";
 import type { Product } from "./types";
+import { isCorruptedValue } from "./productData";
 
 function product(over: Partial<Product> = {}): Product {
   return {
@@ -73,5 +74,18 @@ describe("hasMultipleManufacturers", () => {
     expect(hasMultipleManufacturers(product({ manufacturers: ["HP", "Lenovo"] }))).toBe(true);
     expect(hasMultipleManufacturers(product({ manufacturers: ["AVX"] }))).toBe(false);
     expect(hasMultipleManufacturers(product())).toBe(false);
+  });
+});
+
+describe("isCorruptedValue", () => {
+  it("spots the stringified-object sentinel, including padded", () => {
+    expect(isCorruptedValue("[object Object]")).toBe(true);
+    expect(isCorruptedValue("  [object Object] ")).toBe(true);
+  });
+
+  it("leaves real part numbers alone", () => {
+    expect(isCorruptedValue("06035A1R2BAT2A")).toBe(false);
+    expect(isCorruptedValue("")).toBe(false);
+    expect(isCorruptedValue(undefined)).toBe(false);
   });
 });

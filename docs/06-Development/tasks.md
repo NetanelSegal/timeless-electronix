@@ -26,7 +26,8 @@
 - [x] **SEO meta tags per page**: `PageSeo` (react-helmet-async) with canonical, Open Graph, and `noindex` control; product JSON-LD on the detail page.
 - [x] **Image gallery** for products with multiple images (thumbnail strip on `ProductDetail`).
 - [x] **Real 404s for unknown parts** (2026-08-28): build-time prerender of one flat shell per existing slug (into `_parts/`, outside the `/catalog` route namespace) plus `.htaccess` rules, so `/catalog/<unknown>` returns 404 instead of the SPA shell under 200. Gated on a `.prerendered` marker so a failed prerender cannot 404 the catalog.
-- [ ] **Tidy 521 legacy slugs** with leading/trailing/doubled hyphens (399 + 122) so they satisfy `isValidSeoSlug` like newly generated ones. They are prerendered and serve correctly — this is hygiene, not a defect. One slug is 144 chars, over the 120 bound, and falls through to the SPA shell under 200.
+- [x] ~~**Tidy 521 legacy slugs**~~ — **closed, will not do.** They have leading, trailing or doubled hyphens but are prerendered, serve 200, and are indexed under those URLs. Renaming them would retire 521 URLs Google already knows in exchange for cosmetics, and would need redirects to avoid losing them. The prerender guard was widened to accept them instead. One slug is 144 chars, over the 120 bound, and falls through to the SPA shell under 200.
+- [ ] **Repair the 45 rows whose `partNumber` is `[object Object]`** — needs the source stock list. The value was lost at import and is **not** recoverable from the database: their `technicalSpecs` are empty. Until then they are `noindex`, emit no product JSON-LD, and are left out of the sitemap, so they are not indexed under a meaningless title. The description still holds the real text (e.g. "Photo Emitter LED SM 575NM YEL"), which may help match them back to the source rows.
 
 ## Backlog / Future
 
@@ -57,13 +58,12 @@
 
 ### Engineering
 
-- [ ] **Poll for git sync in CI** instead of the fixed `sleep 30` in
-      `.github/workflows/deploy.yml`; a slow Cloudways pull currently builds the
-      previous commit silently.
-- [ ] **Upgrade `actions/checkout` and `actions/setup-node` to v5** — v4 targets
-      the deprecated Node 20 and is force-run on Node 24.
-- [ ] Delete merged branches: `fix/soft-404-indexing`, `test`,
-      `feature/cloudways-github-actions`, `feature/product-seo-slugs`.
+- [x] **Wait for the real commit in CI** — the fixed `sleep 30` is gone;
+      `scripts/deploy.sh` now blocks until the server checkout contains
+      `DEPLOY_SHA` and fails if it never arrives, so a slow Cloudways pull can
+      no longer build the previous commit behind a green tick.
+- [x] **Upgraded `actions/checkout` and `actions/setup-node` to v5.**
+- [x] Deleted the merged branches.
 
 ### Product
 
