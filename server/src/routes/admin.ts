@@ -21,6 +21,7 @@ import {
   parseQueryBoolean,
 } from '../utils/helpers.js';
 import { productListFilterFromQuery } from '../utils/productListFilter.js';
+import { getManufacturerVariants } from '../services/manufacturerIndex.js';
 import {
   effectiveImageUrls,
   isPermutationOf,
@@ -134,7 +135,12 @@ router.get('/products', async (req, res, next) => {
   try {
     const query = req.query as Record<string, string>;
     const { page, limit } = parsePageLimit(query, { limit: 50, maxLimit: 200 });
-    const filter = productListFilterFromQuery(query, 'admin');
+    const manufacturerVariants = await getManufacturerVariants(
+      query.manufacturer || '',
+    );
+    const filter = productListFilterFromQuery(query, 'admin', {
+      manufacturerVariants,
+    });
 
     const sortSpec = buildMongoSortSpec(query, {
       allowlist: [

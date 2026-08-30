@@ -156,6 +156,17 @@ manufacturer shown per lot. Part number spelling, unlike manufacturer, is
 consistent within a group (0 of 781 sampled groups vary), so the lookup matches
 exactly and uses the `partNumber` index rather than scanning per page view.
 
+**Manufacturer filtering matches every casing variant.** The dropdown used to
+offer `ABRACON` and `Abracon` as separate choices and the filter matched
+exactly, so picking one silently dropped the other's rows — 292 brands were
+split this way. `/api/products/manufacturers` now returns deduplicated display
+names (2,000 → 1,698), and the catalog and admin filters expand the chosen name
+to every raw spelling and match with `$in`. `$in` keeps the `manufacturer`
+index in play; a case-insensitive regex would have scanned the collection on
+the catalog's main browse path. The variant map is cached for 5 minutes, so a
+newly imported brand becomes selectable within the TTL. Old links using any
+casing keep working, since the name is normalised before lookup.
+
 `GET /api/products/slug/:seoSlug` therefore returns, alongside the product:
 
 | Field | Meaning |

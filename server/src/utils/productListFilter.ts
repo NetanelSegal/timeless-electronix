@@ -26,6 +26,16 @@ export const ADMIN_PRODUCT_SEARCH_FIELDS = [
 
 export type ProductListFilterMode = 'public' | 'admin';
 
+export interface ProductListFilterOptions {
+  /**
+   * Every raw spelling of the requested manufacturer. The same brand is stored
+   * as ABRACON and Abracon (594 of 2,000 distinct strings are casing variants
+   * of another), so an exact match silently drops rows. Resolved by the caller
+   * from the cached manufacturer index and matched with an index-backed $in.
+   */
+  manufacturerVariants?: readonly string[];
+}
+
 function searchFieldsForQuery(
   query: Record<string, string>,
   allFields: readonly string[],
@@ -42,6 +52,7 @@ function searchFieldsForQuery(
 export function productListFilterFromQuery(
   query: Record<string, string>,
   mode: ProductListFilterMode,
+  options: ProductListFilterOptions = {},
 ): Record<string, unknown> {
   const allSearchFields =
     mode === 'admin'
@@ -54,7 +65,15 @@ export function productListFilterFromQuery(
     : {};
 
   const manufacturer = (query.manufacturer || '').trim();
-  const mfgFilter = manufacturer ? { manufacturer } : {};
+  const variants = options.manufacturerVariants ?? [];
+  // With no variants resolved (unknown manufacturer, or a caller that did not
+  // look them up) fall back to the exact match: an unknown name should find
+  // nothing, not everything.
+  const mfgFilter = manufacturer
+    ? variants.length > 0
+      ? { manufacturer: { $in: [...variants] } }
+      : { manufacturer }
+    : {};
 
   const minQtyRaw = parseInt(query.minQty ?? '', 10);
   const maxQtyRaw = parseInt(query.maxQty ?? '', 10);

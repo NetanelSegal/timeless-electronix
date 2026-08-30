@@ -7,6 +7,10 @@ import {
 import { productListFilterFromQuery } from '../utils/productListFilter.js';
 import { serializeProduct } from '../utils/productImages.js';
 import { getProductBySeoSlug } from '../handlers/productBySlug.js';
+import {
+  getManufacturerVariants,
+  listManufacturerDisplayNames,
+} from '../services/manufacturerIndex.js';
 
 const router = Router();
 
@@ -22,7 +26,12 @@ router.get('/', async (req, res, next) => {
       return;
     }
     const { page, limit } = parsePageLimit(query, { limit: 24, maxLimit: 100 });
-    const filter = productListFilterFromQuery(query, 'public');
+    const manufacturerVariants = await getManufacturerVariants(
+      query.manufacturer || '',
+    );
+    const filter = productListFilterFromQuery(query, 'public', {
+      manufacturerVariants,
+    });
 
     const sortSpec = buildMongoSortSpec(query, {
       allowlist: ['quantity', 'partNumber', 'manufacturer', 'updatedAt'],
@@ -59,11 +68,9 @@ router.get('/', async (req, res, next) => {
 
 router.get('/manufacturers', async (_req, res, next) => {
   try {
-    const manufacturers = await Product.distinct('manufacturer', {
-      manufacturer: { $ne: '' },
-    });
-    manufacturers.sort((a, b) => (a > b ? 1 : -1));
-    res.json(manufacturers);
+    // Deduplicated: the raw distinct list offers ABRACON and Abracon as two
+    // separate choices, and picking one misses the other's rows.
+    res.json(await listManufacturerDisplayNames());
   } catch (err) {
     next(err);
   }
