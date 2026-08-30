@@ -36,6 +36,8 @@ export default function ProductCard({ product }: Props) {
       manufacturer: product.manufacturer,
       quantity,
       ourReference: product.ourReference,
+      condition: product.condition,
+      dateCode: product.dateCode,
     });
   };
 

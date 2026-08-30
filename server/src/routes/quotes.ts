@@ -10,6 +10,9 @@ const quoteItemSchema = z.object({
   manufacturer: z.string().default(""),
   quantity: z.number().int().min(1),
   ourReference: z.string().default(""),
+  // Optional so a cart saved before lot selection existed still submits.
+  condition: z.string().default(""),
+  dateCode: z.string().default(""),
 });
 
 const quoteSchema = z.object({

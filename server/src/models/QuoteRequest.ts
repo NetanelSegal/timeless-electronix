@@ -5,6 +5,13 @@ export interface IQuoteItem {
   manufacturer: string;
   quantity: number;
   ourReference: string;
+  /**
+   * A part is quoted per stock lot: the customer can ask for 500 new and 200
+   * used of the same component. Without these the line says only how many, not
+   * which lot, and the reference alone does not tell the office the condition.
+   */
+  condition: string;
+  dateCode: string;
 }
 
 export interface IQuoteRequest extends Document {
@@ -24,6 +31,8 @@ const quoteItemSchema = new Schema<IQuoteItem>(
     manufacturer: { type: String, default: "" },
     quantity: { type: Number, required: true },
     ourReference: { type: String, default: "" },
+    condition: { type: String, default: "" },
+    dateCode: { type: String, default: "" },
   },
   { _id: false },
 );

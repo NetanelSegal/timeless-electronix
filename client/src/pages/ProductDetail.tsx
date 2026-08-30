@@ -12,6 +12,7 @@ import CloudinaryImage from "../components/CloudinaryImage";
 import { useQuote } from "../context/QuoteContext";
 import PageSeo from "../components/PageSeo";
 import ProductConditionBadge from "../components/ProductConditionBadge";
+import ProductLots from "../components/ProductLots";
 import type { ProductCondition } from "../lib/productCondition";
 
 function productJsonLd(product: Product, canonical: string) {
@@ -228,6 +229,10 @@ export default function ProductDetail() {
   const canonical = absoluteUrl(canonicalPath);
   const images = product.imageUrls;
   const makerLabel = manufacturerLabel(product);
+  // Several lots of the same part are quoted separately, so the table replaces
+  // the single add-to-quote control. A lone lot keeps the simpler control.
+  const lots = product.lots ?? [];
+  const showLotTable = lots.length > 1;
   const titleBase = `${product.partNumber} — ${makerLabel || "Component"}`;
   const metaDescription =
     product.productSummary?.trim().slice(0, 160) ||
@@ -256,6 +261,8 @@ export default function ProductDetail() {
       manufacturer: product.manufacturer,
       quantity,
       ourReference: product.ourReference,
+      condition: product.condition,
+      dateCode: product.dateCode,
     });
   };
 
@@ -375,6 +382,15 @@ export default function ProductDetail() {
                   </dl>
                 </div>
               ) : null}
+              {showLotTable ? (
+                <ProductLots
+                  product={product}
+                  lots={lots}
+                  items={items}
+                  addItem={addItem}
+                  updateQuantity={updateQuantity}
+                />
+              ) : (
               <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
                 <label className="flex items-center gap-2 text-sm text-text-secondary">
                   <span className="whitespace-nowrap">Qty</span>
@@ -409,7 +425,8 @@ export default function ProductDetail() {
                   )}
                 </button>
               </div>
-              {isInQuote ? (
+              )}
+              {isInQuote && !showLotTable ? (
                 <p className="text-text-secondary text-xs mt-2 flex items-center gap-1">
                   <Check size={14} className="text-green-accent shrink-0" />
                   This part is in your quote; adjust the quantity above and click

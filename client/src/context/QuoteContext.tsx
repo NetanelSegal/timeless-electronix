@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import type { QuoteItem } from "../lib/types";
+import { isProductCondition } from "../lib/productCondition";
 
 function normalizeStoredItems(raw: unknown): QuoteItem[] {
   if (!Array.isArray(raw)) return [];
@@ -28,6 +29,9 @@ function normalizeStoredItems(raw: unknown): QuoteItem[] {
       quantity: qty,
       ourReference:
         typeof o.ourReference === "string" ? o.ourReference : "",
+      // Carts saved before lot selection existed have neither field.
+      condition: isProductCondition(o.condition) ? o.condition : "",
+      dateCode: typeof o.dateCode === "string" ? o.dateCode : "",
     });
   }
   return out;

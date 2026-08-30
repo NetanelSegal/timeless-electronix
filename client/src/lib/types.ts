@@ -64,6 +64,12 @@ export interface QuoteItem {
   manufacturer: string;
   quantity: number;
   ourReference: string;
+  /**
+   * A part is quoted per stock lot, so the same component can appear twice in
+   * one cart — 500 new and 200 used. These say which lot each line is for.
+   */
+  condition: ProductCondition | "";
+  dateCode: string;
 }
 
 /** Line item as stored on a submitted quote (no catalog productId). */
@@ -72,6 +78,8 @@ export interface QuoteRequestLine {
   manufacturer: string;
   quantity: number;
   ourReference: string;
+  condition?: string;
+  dateCode?: string;
 }
 
 export interface QuoteSubmission {

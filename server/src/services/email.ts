@@ -18,6 +18,8 @@ interface QuoteData {
     manufacturer: string;
     quantity: number;
     ourReference: string;
+    condition?: string;
+    dateCode?: string;
   }[];
   customerName: string;
   customerEmail: string;
@@ -87,7 +89,9 @@ export async function sendQuoteNotification(data: QuoteData) {
         `<tr>
           <td style="padding:4px 8px;border:1px solid #ddd">${escapeHtml(item.partNumber)}</td>
           <td style="padding:4px 8px;border:1px solid #ddd">${escapeHtml(item.manufacturer)}</td>
+          <td style="padding:4px 8px;border:1px solid #ddd">${escapeHtml(item.condition || '—')}</td>
           <td style="padding:4px 8px;border:1px solid #ddd">${item.quantity.toLocaleString()}</td>
+          <td style="padding:4px 8px;border:1px solid #ddd">${escapeHtml(item.dateCode || '—')}</td>
           <td style="padding:4px 8px;border:1px solid #ddd">${escapeHtml(item.ourReference)}</td>
         </tr>`,
     )
@@ -111,7 +115,9 @@ export async function sendQuoteNotification(data: QuoteData) {
           <tr style="background:#2d5a3d;color:white">
             <th style="padding:6px 8px;text-align:left">Part Number</th>
             <th style="padding:6px 8px;text-align:left">Manufacturer</th>
+            <th style="padding:6px 8px;text-align:left">Condition</th>
             <th style="padding:6px 8px;text-align:left">Qty</th>
+            <th style="padding:6px 8px;text-align:left">Date code</th>
             <th style="padding:6px 8px;text-align:left">Reference</th>
           </tr>
         </thead>

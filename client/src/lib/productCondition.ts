@@ -7,6 +7,14 @@ export const PRODUCT_CONDITIONS = [
 
 export type ProductCondition = (typeof PRODUCT_CONDITIONS)[number];
 
+/** Narrows an unknown value read from storage or an API response. */
+export function isProductCondition(value: unknown): value is ProductCondition {
+  return (
+    typeof value === "string" &&
+    (PRODUCT_CONDITIONS as readonly string[]).includes(value)
+  );
+}
+
 export function conditionBadgeClass(condition: ProductCondition): string {
   switch (condition) {
     case "New/Standard":

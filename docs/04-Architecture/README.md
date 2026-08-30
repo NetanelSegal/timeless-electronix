@@ -186,6 +186,15 @@ Lot URLs stay reachable and return 200; they carry `rel=canonical` to the
 canonical URL rather than redirecting, so nothing that is already linked or
 indexed breaks.
 
+A part page with more than one lot shows them as a table and quotes each one
+separately, so a customer can ask for 500 from the new lot and 200 from the used
+one in a single request. Each becomes its own cart line, keyed by the lot's
+`_id`, and quote lines therefore carry `condition` and `dateCode` through to the
+notification email and the admin view — the internal reference alone does not
+tell the office which stock was meant. Both fields default to `""`, so a cart
+saved before this existed still submits. A single-lot part keeps the simpler
+add-to-quote control.
+
 ### Request routing and HTTP status truthfulness
 
 The web root is static; Node is only reached through the `/api` proxy. This is

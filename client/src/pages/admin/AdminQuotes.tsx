@@ -7,6 +7,8 @@ import type { QuoteRequest, QuoteRequestLine } from "../../lib/types";
 import Pagination from "../../components/Pagination";
 import { useAsyncQuery } from "../../hooks/useAsyncQuery";
 import { useDebouncedSearchToUrl } from "../../hooks/useDebouncedSearchToUrl";
+import ProductConditionBadge from "../../components/ProductConditionBadge";
+import { isProductCondition } from "../../lib/productCondition";
 
 interface QuotesResponse {
   quotes: QuoteRequest[];
@@ -32,6 +34,10 @@ function cloneQuoteLines(items: QuoteRequestLine[]): QuoteRequestLine[] {
     manufacturer: i.manufacturer,
     quantity: i.quantity,
     ourReference: i.ourReference,
+    // Which stock lot the customer asked for; the same part can appear twice
+    // in one quote at different conditions.
+    condition: i.condition,
+    dateCode: i.dateCode,
   }));
 }
 
@@ -441,7 +447,13 @@ export default function AdminQuotes() {
                           Manufacturer
                         </th>
                         <th scope="col" className="text-left pb-2 pr-2">
+                          Condition
+                        </th>
+                        <th scope="col" className="text-left pb-2 pr-2">
                           Qty
+                        </th>
+                        <th scope="col" className="text-left pb-2 pr-2">
+                          Date code
                         </th>
                         <th scope="col" className="text-left pb-2">
                           Ref
@@ -458,6 +470,13 @@ export default function AdminQuotes() {
                             {item.manufacturer}
                           </td>
                           <td className="py-1.5 pr-2">
+                            {isProductCondition(item.condition) ? (
+                              <ProductConditionBadge condition={item.condition} />
+                            ) : (
+                              <span className="text-text-secondary">—</span>
+                            )}
+                          </td>
+                          <td className="py-1.5 pr-2">
                             <input
                               type="number"
                               min={1}
@@ -468,6 +487,9 @@ export default function AdminQuotes() {
                               className="w-24 bg-bg-card border border-border rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-green-accent"
                               aria-label={`Quantity for ${item.partNumber}`}
                             />
+                          </td>
+                          <td className="py-1.5 text-text-secondary pr-2">
+                            {item.dateCode || "—"}
                           </td>
                           <td className="py-1.5 text-text-secondary">
                             {item.ourReference}
