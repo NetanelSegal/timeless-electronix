@@ -22,37 +22,25 @@ if [ ! -f server/.env ]; then
   exit 1
 fi
 
-# Cloudways pulls the repo asynchronously, so the checkout can still be on the
-# previous commit when this script starts. Waiting a fixed number of seconds
-# only hides that: a slow pull builds the old code and the deploy still goes
-# green. Wait for the commit the workflow was triggered for, and fail if it
-# never arrives.
-if [ -n "${DEPLOY_SHA:-}" ] && command -v git >/dev/null 2>&1; then
-  echo "deploy: waiting for git checkout to reach ${DEPLOY_SHA}"
-  sync_attempt=0
-  synced=0
-  while [ "$sync_attempt" -lt 60 ]; do
-    sync_attempt=$((sync_attempt + 1))
-    head_sha="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
-    # Accept "has at least this commit", not only an exact match: the checkout
-    # being slightly ahead still contains the code we are deploying, and
-    # failing a healthy deploy over that would be worse than the bug this
-    # check exists to catch.
-    if [ "$head_sha" = "$DEPLOY_SHA" ] ||
-       git merge-base --is-ancestor "$DEPLOY_SHA" HEAD 2>/dev/null; then
-      echo "deploy: checkout has ${DEPLOY_SHA} (HEAD ${head_sha}) after ${sync_attempt} attempt(s)"
-      synced=1
-      break
-    fi
-    sleep 3
-  done
-  if [ "$synced" != "1" ]; then
-    echo "deploy: ERROR checkout is at $(git rev-parse HEAD 2>/dev/null || echo unknown), expected ${DEPLOY_SHA}"
-    echo "deploy: the Cloudways git pull did not land; refusing to build the wrong commit."
+# Verify we are building the commit the workflow was triggered for, when that
+# is knowable. On Cloudways it usually is not: public_html is not a git
+# checkout the SSH user can read, so `git rev-parse HEAD` fails and the check
+# skips rather than blocking a healthy deploy. It still guards hosts where the
+# deployed tree is a real checkout.
+if [ -n "${DEPLOY_SHA:-}" ] && git rev-parse HEAD >/dev/null 2>&1; then
+  head_sha="$(git rev-parse HEAD)"
+  # "has at least this commit": a checkout slightly ahead still contains the
+  # code being deployed.
+  if [ "$head_sha" = "$DEPLOY_SHA" ] ||
+     git merge-base --is-ancestor "$DEPLOY_SHA" HEAD 2>/dev/null; then
+    echo "deploy: checkout has ${DEPLOY_SHA} (HEAD ${head_sha})"
+  else
+    echo "deploy: ERROR checkout is at ${head_sha}, expected ${DEPLOY_SHA}"
+    echo "deploy: refusing to build the wrong commit."
     exit 1
   fi
 else
-  echo "deploy: DEPLOY_SHA unset or git unavailable; skipping the checkout check"
+  echo "deploy: no readable git checkout here; skipping the commit check"
 fi
 
 # Cloudways shells may not load nvm by default.

@@ -99,6 +99,14 @@ jobs:
             *) exit 1 ;;
           esac
 
+      # The Cloudways pull is asynchronous and there is no usable git checkout
+      # on the server to poll (see docs/06-Development). Running the SSH step
+      # immediately races the pull and fails with EACCES while it is still
+      # rewriting files, so the wait stays until the operation API is polled
+      # properly instead.
+      - name: Wait for git sync
+        run: sleep 30
+
       - name: Build and restart on server (SSH)
         uses: appleboy/ssh-action@v1.2.2
         env:
@@ -114,33 +122,6 @@ jobs:
           script: |
             set -eu
             cd "$APP_PATH"
-            # Wait for the Cloudways pull to land before touching anything from
-            # the repo. This has to live here rather than in deploy.sh: that
-            # script only reaches the server via the very pull we are waiting
-            # for, so on the deploy that introduces it the old copy would run.
-            # Running mid-pull also fails with EACCES, because the pull is still
-            # rewriting files as another user.
-            attempt=0
-            synced=0
-            while [ "$attempt" -lt 60 ]; do
-              attempt=$((attempt + 1))
-              head_sha="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
-              # "has at least this commit": a checkout slightly ahead still
-              # contains the code being deployed.
-              if [ "$head_sha" = "$DEPLOY_SHA" ] || git merge-base --is-ancestor "$DEPLOY_SHA" HEAD 2>/dev/null; then
-                echo "deploy: checkout has $DEPLOY_SHA (HEAD $head_sha) after $attempt attempt(s)"
-                synced=1
-                break
-              fi
-              sleep 3
-            done
-            if [ "$synced" != "1" ]; then
-              echo "deploy: ERROR checkout is at $(git rev-parse HEAD 2>/dev/null || echo unknown), expected $DEPLOY_SHA"
-              echo "deploy: the Cloudways git pull did not land; refusing to build the wrong commit."
-              exit 1
-            fi
-            # Let the pull settle its file permissions before npm writes here.
-            sleep 5
             DEPLOY_SHA="$DEPLOY_SHA" bash scripts/deploy.sh
 
       - name: Purge Varnish cache

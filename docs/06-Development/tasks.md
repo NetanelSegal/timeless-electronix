@@ -58,10 +58,15 @@
 
 ### Engineering
 
-- [x] **Wait for the real commit in CI** — the fixed `sleep 30` is gone;
-      `scripts/deploy.sh` now blocks until the server checkout contains
-      `DEPLOY_SHA` and fails if it never arrives, so a slow Cloudways pull can
-      no longer build the previous commit behind a green tick.
+- [ ] **Confirm the deploy built the right commit** — attempted and reverted.
+      `public_html` is **not a git checkout the SSH user can read**:
+      `git rev-parse HEAD` returns nothing, so polling it timed out and failed
+      two deploys. The `sleep 30` is back, and the check in `scripts/deploy.sh`
+      now skips when there is no readable checkout instead of blocking. The
+      real fix is to poll the **Cloudways operation API** — `POST /api/v1/git/pull`
+      returns an operation id that can be polled to completion — rather than
+      guessing at a duration. Removing the sleep without that in place races
+      the pull and fails with `EACCES` while it rewrites files.
 - [x] **Upgraded `actions/checkout` and `actions/setup-node` to v5.**
 - [x] Deleted the merged branches.
 
