@@ -37,6 +37,26 @@ describe("Products API", () => {
     ]);
   });
 
+  it("never exposes the internal stock reference publicly", async () => {
+    // ~5% of rows hold free-text Hebrew warehouse notes here, so this must not
+    // reach the browser on any public route.
+    const list = await request(app).get("/api/products?limit=5");
+    expect(list.status).toBe(200);
+    expect(list.body.products.length).toBeGreaterThan(0);
+    for (const product of list.body.products) {
+      expect(product).not.toHaveProperty("ourReference");
+    }
+
+    const one = await request(app).get(
+      "/api/products/slug/yageo-rc0402jr-074k7l",
+    );
+    expect(one.status).toBe(200);
+    expect(one.body).not.toHaveProperty("ourReference");
+    for (const lot of one.body.lots ?? []) {
+      expect(lot).not.toHaveProperty("ourReference");
+    }
+  });
+
   it("GET /api/products returns paginated products", async () => {
     const res = await request(app).get("/api/products");
     expect(res.status).toBe(200);

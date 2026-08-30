@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { Product } from '../models/Product.js';
-import { serializeProduct } from '../utils/productImages.js';
+import { serializePublicProduct } from '../utils/productImages.js';
 import { getProductGroup } from '../services/productGroup.js';
 
 export function resolveSeoSlugParam(req: Request): string {
@@ -33,7 +33,7 @@ export async function getProductBySeoSlug(
     const group = await getProductGroup(String(product.partNumber ?? ''));
     const canonicalSeoSlug = group.canonicalSeoSlug || String(product.seoSlug ?? '');
     res.json({
-      ...serializeProduct(product as Record<string, unknown>),
+      ...serializePublicProduct(product as Record<string, unknown>),
       canonicalSeoSlug,
       isCanonical: canonicalSeoSlug === String(product.seoSlug ?? ''),
       lots: group.lots,

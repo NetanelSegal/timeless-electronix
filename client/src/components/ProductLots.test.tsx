@@ -12,7 +12,6 @@ const lot = (over: Partial<ProductLot> = {}): ProductLot => ({
   condition: "New/Standard",
   quantity: 4000,
   dateCode: "716",
-  ourReference: "NB808/28",
   ...over,
 });
 
@@ -63,11 +62,11 @@ describe("ProductLots", () => {
     const { addItem } = renderLots({
       lots: [
         lot(),
-        lot({ _id: "lot-2", seoSlug: "avx-x-2", condition: "Used", quantity: 960, ourReference: "NB802/47", dateCode: "705" }),
+        lot({ _id: "lot-2", seoSlug: "avx-x-2", condition: "Used", quantity: 960, dateCode: "705" }),
       ],
     });
 
-    const usedRow = screen.getByText("NB802/47").closest("tr")!;
+    const usedRow = screen.getByText("Used").closest("tr")!;
     const input = within(usedRow).getByRole("spinbutton");
     await user.clear(input);
     await user.type(input, "250");
@@ -78,7 +77,6 @@ describe("ProductLots", () => {
       partNumber: "06035A1R2BAT2A",
       manufacturer: "AVX",
       quantity: 250,
-      ourReference: "NB802/47",
       condition: "Used",
       dateCode: "705",
     });
@@ -94,7 +92,6 @@ describe("ProductLots", () => {
           partNumber: "06035A1R2BAT2A",
           manufacturer: "AVX",
           quantity: 10,
-          ourReference: "NB808/28",
           condition: "New/Standard",
           dateCode: "716",
         },
@@ -127,11 +124,10 @@ describe("ProductLots", () => {
     expect(screen.queryByRole("columnheader", { name: "Date code" })).toBeNull();
   });
 
-  it("links other lots to their own page but not the current one", () => {
-    renderLots({
-      lots: [lot(), lot({ _id: "lot-2", seoSlug: "avx-x-2", ourReference: "NB802/47" })],
-    });
-    expect(screen.getByRole("link", { name: "NB802/47" })).toBeTruthy();
-    expect(screen.queryByRole("link", { name: "NB808/28" })).toBeNull();
+  it("never shows an internal stock reference", () => {
+    renderLots({ lots: [lot(), lot({ _id: "lot-2", condition: "Used" })] });
+    expect(screen.queryByRole("columnheader", { name: "Ref" })).toBeNull();
+    expect(screen.queryByText(/NB\d+\//)).toBeNull();
   });
+
 });

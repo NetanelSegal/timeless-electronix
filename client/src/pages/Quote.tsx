@@ -32,7 +32,6 @@ export default function Quote() {
           partNumber: i.partNumber,
           manufacturer: i.manufacturer,
           quantity: i.quantity,
-          ourReference: i.ourReference,
         })),
         ...customer,
       });
@@ -116,11 +115,17 @@ export default function Quote() {
             <div className="flex-1 min-w-0">
               <h3 className="font-bold text-sm">{item.partNumber}</h3>
               <p className="text-green-accent text-xs">{item.manufacturer}</p>
-              {item.ourReference && (
+              {item.condition || item.dateCode ? (
+                // Two lots of the same part can both be in the cart, so the
+                // line has to say which stock it is. The internal reference
+                // used to do that; condition and date code are what the
+                // customer can actually see.
                 <p className="text-text-secondary text-xs">
-                  Ref: {item.ourReference}
+                  {[item.condition, item.dateCode && `DC: ${item.dateCode}`]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </p>
-              )}
+              ) : null}
             </div>
 
             <div className="flex items-center gap-3">

@@ -5,7 +5,7 @@ import {
   buildMongoSortSpec,
 } from '../utils/helpers.js';
 import { productListFilterFromQuery } from '../utils/productListFilter.js';
-import { serializeProduct } from '../utils/productImages.js';
+import { serializePublicProduct } from '../utils/productImages.js';
 import { getProductBySeoSlug } from '../handlers/productBySlug.js';
 import {
   getManufacturerVariants,
@@ -55,7 +55,7 @@ router.get('/', async (req, res, next) => {
 
     res.json({
       products: products.map((p) =>
-        serializeProduct(p as Record<string, unknown>),
+        serializePublicProduct(p as Record<string, unknown>),
       ),
       total,
       page,

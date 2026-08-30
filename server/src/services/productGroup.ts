@@ -15,7 +15,6 @@ export interface ProductLot {
   condition: string;
   quantity: number;
   dateCode: string;
-  ourReference: string;
 }
 
 export interface ProductGroup {
@@ -102,7 +101,6 @@ export async function getProductGroup(
       condition: 1,
       quantity: 1,
       dateCode: 1,
-      ourReference: 1,
       createdAt: 1,
     },
   ).lean();
@@ -118,7 +116,6 @@ export async function getProductGroup(
     condition: String(d.condition ?? ""),
     quantity: Number(d.quantity ?? 0),
     dateCode: String(d.dateCode ?? ""),
-    ourReference: String(d.ourReference ?? ""),
   }));
 
   return {

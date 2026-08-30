@@ -27,8 +27,6 @@ function normalizeStoredItems(raw: unknown): QuoteItem[] {
       partNumber: typeof o.partNumber === "string" ? o.partNumber : "",
       manufacturer: typeof o.manufacturer === "string" ? o.manufacturer : "",
       quantity: qty,
-      ourReference:
-        typeof o.ourReference === "string" ? o.ourReference : "",
       // Carts saved before lot selection existed have neither field.
       condition: isProductCondition(o.condition) ? o.condition : "",
       dateCode: typeof o.dateCode === "string" ? o.dateCode : "",

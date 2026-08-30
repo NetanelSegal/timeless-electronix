@@ -5,7 +5,8 @@ export interface Product {
   partNumber: string;
   description: string;
   quantity: number;
-  ourReference: string;
+  /** Internal stock locator. Admin responses only; stripped from public ones. */
+  ourReference?: string;
   manufacturer: string;
   dateCode: string;
   condition: ProductCondition;
@@ -40,7 +41,6 @@ export interface ProductLot {
   condition: ProductCondition | "";
   quantity: number;
   dateCode: string;
-  ourReference: string;
 }
 
 export interface ProductsResponse {
@@ -63,10 +63,10 @@ export interface QuoteItem {
   partNumber: string;
   manufacturer: string;
   quantity: number;
-  ourReference: string;
   /**
    * A part is quoted per stock lot, so the same component can appear twice in
    * one cart — 500 new and 200 used. These say which lot each line is for.
+   * The internal reference is resolved server-side from `productId`.
    */
   condition: ProductCondition | "";
   dateCode: string;

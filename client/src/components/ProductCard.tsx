@@ -35,7 +35,6 @@ export default function ProductCard({ product }: Props) {
       partNumber: product.partNumber,
       manufacturer: product.manufacturer,
       quantity,
-      ourReference: product.ourReference,
       condition: product.condition,
       dateCode: product.dateCode,
     });
@@ -83,11 +82,6 @@ export default function ProductCard({ product }: Props) {
         {product.dateCode && (
           <span className="bg-gray-100 px-2 py-0.5 rounded">
             DC: {product.dateCode}
-          </span>
-        )}
-        {product.ourReference && (
-          <span className="bg-gray-100 px-2 py-0.5 rounded">
-            Ref: {product.ourReference}
           </span>
         )}
       </div>

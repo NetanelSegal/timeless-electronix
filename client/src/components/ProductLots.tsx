@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { Check, ShoppingCart } from "lucide-react";
 import type { Product, ProductLot, QuoteItem } from "../lib/types";
 import { hasMultipleManufacturers } from "../lib/productGroup";
@@ -55,7 +54,6 @@ export default function ProductLots({
       partNumber: product.partNumber,
       manufacturer: lot.manufacturer,
       quantity: wanted,
-      ourReference: lot.ourReference,
       condition: isProductCondition(lot.condition) ? lot.condition : "",
       dateCode: lot.dateCode,
     });
@@ -81,7 +79,6 @@ export default function ProductLots({
               {showDateCode ? (
                 <th scope="col" className="px-4 py-3 font-medium">Date code</th>
               ) : null}
-              <th scope="col" className="px-4 py-3 font-medium">Ref</th>
               <th scope="col" className="px-4 py-3 font-medium">Quantity</th>
             </tr>
           </thead>
@@ -116,22 +113,6 @@ export default function ProductLots({
                       {lot.dateCode || "—"}
                     </td>
                   ) : null}
-                  <td className="px-4 py-3 text-text-secondary whitespace-nowrap">
-                    {lot.ourReference ? (
-                      isCurrent ? (
-                        lot.ourReference
-                      ) : (
-                        <Link
-                          to={`/catalog/${encodeURIComponent(lot.seoSlug)}`}
-                          className="text-green-accent hover:underline"
-                        >
-                          {lot.ourReference}
-                        </Link>
-                      )
-                    ) : (
-                      "—"
-                    )}
-                  </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <input
@@ -142,7 +123,7 @@ export default function ProductLots({
                           setQty((q) => ({ ...q, [lot._id]: e.target.value }))
                         }
                         className="w-20 bg-bg-secondary border border-border rounded-lg px-2 py-1.5 text-white text-sm focus:outline-none focus:border-green-accent"
-                        aria-label={`Quantity from lot ${lot.ourReference || lot.seoSlug}`}
+                        aria-label={`Quantity from the ${lot.condition || "listed"} lot of ${lot.quantity.toLocaleString()}`}
                       />
                       <button
                         type="button"

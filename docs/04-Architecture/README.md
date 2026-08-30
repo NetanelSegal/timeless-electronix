@@ -133,6 +133,32 @@ The app is designed to be deployable anywhere:
 - **Cloudways (document root = `client/dist`)**: Deploy the **full monorepo** via Git (not the `client/dist` folder — it is gitignored). Set Apache webroot to **`client/dist`**. Use [`client/public/.htaccess`](../../client/public/.htaccess) (copied into `dist` on build) to proxy **`/api`** to Node on port 3001 and SPA-fallback. Run **`npm run build`** on the server after each deploy so **`client/dist/sitemap.xml`** exists. See [`docs/06-Development/README.md`](../06-Development/README.md) for GitHub Actions + Cloudways setup.
 
 
+### `ourReference` is admin-only
+
+`ourReference` is an internal stock locator. Most rows hold a clean `NNN/NN`
+code, but roughly **5% carry free-text warehouse notes in Hebrew** — physical
+shelf locations and remarks such as `שידה מגירה 1UR/163` or
+`NB619/21 (NB740 בתוך)`. On an English-language public catalogue those were
+never meant for customers, and at 5% of 18,836 rows that is 900+ products.
+
+It is therefore stripped from every public response by `serializePublicProduct`
+(product list, product detail, and each entry in `lots[]`), and it was already
+absent from `PUBLIC_PRODUCT_SEARCH_FIELDS`, so it is not searchable either. The
+admin routes keep using `serializeProduct` and still return it.
+
+**The quote flow resolves it server-side.** A cart line carries `productId`;
+`POST /api/quotes` re-reads `partNumber`, `manufacturer`, `ourReference`,
+`condition` and `dateCode` from that product before saving, so the office still
+sees exactly which lot was ordered. `ourReference` is not in the request schema
+at all — a client cannot supply it, and cannot spoof the rest either, since the
+database value wins. A line whose product no longer exists keeps what the
+client sent, minus the reference.
+
+The lot table lost its `Ref` column with this change. Customers tell two lots
+apart by condition, quantity and date code — which is what they can actually
+act on — and the cart lines show the same, so the same part at two conditions
+no longer renders as two identical rows.
+
 ### Parts, stock lots, and manufacturer names
 
 A part number is **one product**; each database row is **one stock lot** of it.

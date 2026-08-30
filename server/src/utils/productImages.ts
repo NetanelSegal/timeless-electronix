@@ -59,6 +59,22 @@ export function serializeProduct(doc: Record<string, unknown>): Record<string, u
   return out;
 }
 
+/**
+ * Public API shape: `serializeProduct` minus `ourReference`.
+ *
+ * The reference is an internal stock locator, and ~5% of rows hold free-text
+ * warehouse notes in Hebrew rather than a clean NNN/NN code — physical shelf
+ * locations and remarks that were never meant for customers. It stays on the
+ * admin routes, and the quote flow resolves it server-side from the product id
+ * so the office still knows which lot was ordered.
+ */
+export function serializePublicProduct(
+  doc: Record<string, unknown>,
+): Record<string, unknown> {
+  const { ourReference: _internal, ...rest } = serializeProduct(doc);
+  return rest;
+}
+
 export function isPermutationOf(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false;
   const sa = [...a].sort();

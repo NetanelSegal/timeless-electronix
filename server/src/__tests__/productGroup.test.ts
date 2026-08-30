@@ -93,9 +93,9 @@ describe("selectCanonicalDoc", () => {
 describe("sortLotsForDisplay", () => {
   it("puts new stock first, then the largest quantity", () => {
     const lots = sortLotsForDisplay([
-      { _id: "1", seoSlug: "c", manufacturer: "", condition: "Used", quantity: 9000, dateCode: "", ourReference: "" },
-      { _id: "2", seoSlug: "a", manufacturer: "", condition: "New/Standard", quantity: 10, dateCode: "", ourReference: "" },
-      { _id: "3", seoSlug: "b", manufacturer: "", condition: "New/Standard", quantity: 500, dateCode: "", ourReference: "" },
+      { _id: "1", seoSlug: "c", manufacturer: "", condition: "Used", quantity: 9000, dateCode: "" },
+      { _id: "2", seoSlug: "a", manufacturer: "", condition: "New/Standard", quantity: 10, dateCode: "" },
+      { _id: "3", seoSlug: "b", manufacturer: "", condition: "New/Standard", quantity: 500, dateCode: "" },
     ]);
     expect(lots.map((l) => l.seoSlug)).toEqual(["b", "a", "c"]);
   });
@@ -107,11 +107,16 @@ describe("getProductGroup", () => {
   it("returns every lot of the part", async () => {
     const g = await getProductGroup("06035A1R2BAT2A");
     expect(g.lots).toHaveLength(3);
-    expect(g.lots.map((l) => l.ourReference).sort()).toEqual([
-      "NB802/47",
-      "NB808/29",
-      "NB808/42",
+    expect(g.lots.map((l) => l.quantity).sort((a, b) => a - b)).toEqual([
+      200, 960, 3693,
     ]);
+  });
+
+  it("does not expose the internal stock reference on a lot", async () => {
+    const g = await getProductGroup("06035A1R2BAT2A");
+    for (const lot of g.lots) {
+      expect(lot).not.toHaveProperty("ourReference");
+    }
   });
 
   it("canonicalises to the oldest lot's slug", async () => {
@@ -175,8 +180,9 @@ describe("GET /api/products/slug/:seoSlug group fields", () => {
     expect(res.status).toBe(200);
     expect(res.body.isCanonical).toBe(false);
     expect(res.body.canonicalSeoSlug).toBe("avx-06035a1r2bat2a");
-    // the lot itself is still served in full — the URL stays reachable
-    expect(res.body.ourReference).toBe("NB802/47");
+    // the lot itself is still served — but never with the internal reference
+    expect(res.body.quantity).toBe(960);
+    expect(res.body).not.toHaveProperty("ourReference");
   });
 
   it("still answers 404 for an unknown slug", async () => {

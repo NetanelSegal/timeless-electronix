@@ -43,11 +43,12 @@
       does not fix thin duplicate content — either write real copy for the parts
       that get searched, or `noindex` the long tail and spend crawl budget on
       the rest.
-- [ ] **Decide on `ourReference` in the public API.** It is deliberately shown
-      to customers (`Ref:` badge) and flows through the quote cart, so it is not
-      a leak — but it is an internal stock reference, it is returned on every
-      public product response, and it is what fragments the slugs above. Open
-      question for the business, not a bug.
+- [x] **`ourReference` removed from public responses** (2026-08-30). A scan
+      found ~5% of rows hold free-text Hebrew warehouse notes there (physical
+      shelf locations), not just a clean code. Stripped from the public product
+      list, detail and `lots[]`; kept on the admin routes. The quote flow now
+      resolves it server-side from `productId`, so the office still gets it and
+      a client can no longer supply or spoof a quote line.
 - [ ] **Request validation in Search Console** for the Soft 404 and "crawled,
       not indexed" reports, then track the counts down over the following weeks.
 - [ ] **Server-side metadata injection** — only after the above. The prerender

@@ -265,7 +265,6 @@ export default function ProductDetail() {
       partNumber: product.partNumber,
       manufacturer: product.manufacturer,
       quantity,
-      ourReference: product.ourReference,
       condition: product.condition,
       dateCode: product.dateCode,
     });
@@ -354,11 +353,6 @@ export default function ProductDetail() {
                 {product.dateCode ? (
                   <span className="bg-bg-card px-3 py-1 rounded-lg border border-border">
                     DC: {product.dateCode}
-                  </span>
-                ) : null}
-                {product.ourReference ? (
-                  <span className="bg-bg-card px-3 py-1 rounded-lg border border-border">
-                    Ref: {product.ourReference}
                   </span>
                 ) : null}
               </div>
