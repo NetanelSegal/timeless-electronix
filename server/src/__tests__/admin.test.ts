@@ -228,6 +228,30 @@ describe("Admin API", () => {
       expect(scoped.body.products[0].partNumber).toBe("UNIQUE-PN-XYZ");
     });
 
+    it("still returns the internal stock reference to admins", async () => {
+      // The other half of the public-side guarantee: the field is stripped for
+      // customers, but the office needs it to locate stock. Using the public
+      // serializer here would silently break that.
+      const token = await getAdminToken();
+      await Product.create({
+        partNumber: "REF-VISIBLE-1",
+        manufacturer: "ACME",
+        quantity: 5,
+        ourReference: "NB999/1 שידה מגירה",
+        seoSlug: "acme-ref-visible-1",
+      });
+
+      const res = await request(app)
+        .get("/api/admin/products?search=REF-VISIBLE-1&limit=10")
+        .set("Authorization", `Bearer ${token}`);
+      expect(res.status).toBe(200);
+      const row = res.body.products.find(
+        (p: { partNumber: string }) => p.partNumber === "REF-VISIBLE-1",
+      );
+      expect(row).toBeTruthy();
+      expect(row.ourReference).toBe("NB999/1 שידה מגירה");
+    });
+
     it("GET /products missingSlug finds rows with empty or missing seoSlug", async () => {
       const token = await getAdminToken();
       const col = Product.collection;
